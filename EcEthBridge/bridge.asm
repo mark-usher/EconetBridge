@@ -200,20 +200,13 @@
 .equ	ip_length		= 0x14			; the length of the data packet must be added to this
 .equ	ip_TTL			= 0x40			; TTL
 .equ	ip_Protocol		= 0x11			; UDP
-.equ	ip_S_Addr_A		= 0x1
-.equ	ip_S_Addr_B		= 0x2
-.equ	ip_S_Addr_C		= 0x80
-.equ	ip_S_Addr_D		= 0x0A
-.equ	ip_D_Addr_A		= 0x1
-.equ	ip_D_Addr_B		= 0x2
-.equ	ip_D_Addr_C		= 0x80
-.equ	ip_D_Addr_D		= 0x09
 .equ	udp_S_Port_MSB	= 0x80
 .equ	udp_S_Port_LSB	= 0x80
 .equ	udp_D_Port_MSB	= 0x80
 .equ	udp_D_Port_LSB	= 0x00
 .equ	udp_header_length=0x08
 
+.include "config.inc"
 
 .equ	ECONET_RX_BUF	= 0x4000
 .equ	ECONET_TX_BUF	= 0x6000
@@ -316,7 +309,7 @@ reset:
 	rcall	cs_init
 
 
-	; zero sram from 0x5000 to 0xFFFF
+	; zero sram from 0x5000 to 0x7FFF
 	ldi	ZH, 0x5					; High byte Z 0x5
 	clr	tmp						; clear tmp
 	clr	ZL						; clear low byte Z
@@ -325,7 +318,8 @@ zero1:							; start loop around SRAM locations
 	inc	ZL						; increment low byte of loop
 	brne	zero1				; go from 0 to &FF
 	inc	ZH						; then increment ZH
-	brne	zero1				; until it reaches &FFFF
+	cpi	ZH, 0x80
+	brne	zero1				; until it reaches &8000
 
 	rcall	crlf				; output crlf to serial port
 
@@ -358,7 +352,7 @@ zero1:							; start loop around SRAM locations
 
 
 loop:
-;	rcall	cs_poll
+	rcall	cs_poll
 
 	lds	r16, adlc_state				; check the adlc_state
 	cpi	r16, FRAME_COMPLETE			; is the frame complete?
@@ -367,12 +361,15 @@ loop:
 
 
 adlc_frame_completed:
-;	rcall cs_test_tx				; send it out on ethernet
+	rcall cs_test_tx				; send it out on ethernet
 ;	rcall debug_adlc_SR				; debug output of the ADLC Status registers
 
-	rcall output_frame_serial		; send frame to serial debugger
+;	rcall output_frame_serial		; send frame to serial debugger
 	rcall adlc_ready_to_receive		; reset to the Rx ready state
 	rjmp loop						; main loop
+
+
+
 
 
 ; Output the completed frame to the serial
@@ -438,6 +435,82 @@ print_sr_loop:
 
 	rcall	crlf					; finished outputting the Rx buffer contents, printer crlf
 	ret								; main loop
+
+econet_start_tx:
+	; switch to 1-byte mode, no PSE
+	ldi	r16, ADLC_CR2			; set to write to Control Register 2
+	clr	r17						; clear all bits
+	rcall	adlc_write			; write to Control Register
+
+tx_await_idle:	
+	ldi	r16, ADLC_SR2
+	rcall	adlc_read
+	bst	r17, 2					; 4 ;Idle?
+	brbc	6, tx_await_idle
+
+	ldi	XL, ECONET_TX_BUF & 0xff
+	ldi	XH, ECONET_TX_BUF >> 8
+	mov	YL, XL
+	mov	YH, XH
+	ldi	r16, 6
+	add	YL, r16
+	rcall	adlc_tx_frame
+
+	rcall	adlc_ready_to_receive
+tx_await_ack:
+	lds	r16, adlc_state				; check the adlc_state
+	cpi	r16, FRAME_COMPLETE			; is the frame complete?
+	breq	got_frame
+
+	lds	r16, adlc_state				; check the adlc_state
+	rcall	serial_tx_hex
+	rcall	crlf
+	
+	ldi	r16, ADLC_SR2
+	rcall	adlc_read
+	bst	r17, 2					; 4 ;Idle?
+	brbc	6, tx_await_ack
+
+	lds	r16, adlc_state				; check the adlc_state
+	cpi	r16, FRAME_COMPLETE			; is the frame complete?
+	breq	got_frame
+
+	ldi	r16, 0x49
+	rjmp	serial_tx
+
+got_frame:
+	ldi	XL, (ECONET_TX_BUF + 2) & 0xff
+	ldi	XH, (ECONET_TX_BUF + 2) >> 8
+	ldi	YL, ECONET_RX_BUF & 0xff
+	ldi	YH, ECONET_RX_BUF >> 8
+	ld	r16, X+
+	ld	r17, Y+
+	cp	r16, r17
+	brne	not_scout
+	ld	r16, X+
+	ld	r17, Y+
+	cp	r16, r17
+	brne	not_scout
+	ldi	XL, (ECONET_TX_BUF) & 0xff
+	ldi	XH, (ECONET_TX_BUF) >> 8
+	ld	r16, X+
+	ld	r17, Y+
+	cp	r16, r17
+	brne	not_scout
+	ld	r16, X+
+	ld	r17, Y+
+	cp	r16, r17
+	brne	not_scout
+
+	mov	YL, ZL
+	mov	YH, ZH
+	rcall	adlc_tx_frame
+	ret
+	
+not_scout:
+	ldi	r16, 0x54
+	rcall	serial_tx
+	ret
 
 ; =======================================================================
 ; == EGPIO ==============================================================
@@ -658,7 +731,6 @@ noclock:
 ; == ADLC ===============================================================
 ; =======================================================================
 
-
 .include "adlc.asm"
 
 
@@ -666,6 +738,7 @@ noclock:
 ; =======================================================================
 ; == IP =================================================================
 ; =======================================================================
+
 
 .include "ip.asm"
 
@@ -705,22 +778,22 @@ init_vars:
 	ldi	ZL, MAC_addr_DA & 0xff			; set ZL with the lowbyte of the MAC address
 	ldi	ZH, MAC_addr_DA >> 8			; set ZH with the highbyte of the MAC address
 
-	ldi r17, 0x00 
+	ldi r17, MAC_Dest_5 
 	st Z+,	r17						; Octet 5 of IA
 
-	ldi r17, 0x01 
+	ldi r17, MAC_Dest_4 
 	st Z+,	r17						; Octet 4 of IA
 
-	ldi r17, 0x4A 
+	ldi r17, MAC_Dest_3 
 	st Z+,	r17						; Octet 3 of IA
 
-	ldi r17, 0x60 
+	ldi r17, MAC_Dest_2
 	st Z+,	r17						; Octet 2 of IA
 
-	ldi r17, 0xAC 
+	ldi r17, MAC_Dest_1 
 	st Z+,	r17						; Octet 1 of IA
 
-	ldi r17, 0x63 
+	ldi r17, MAC_Dest_0 
 	st Z,	r17						; Octet 0 of IA
 
 	; init IP Header
@@ -758,7 +831,7 @@ init_vars:
 	st Z+, r17							; 2 bytes Header Checksum 0x77 0x26
 	st Z+, r17
 
-	ldi r16, ip_S_Addr_A				; 4 bytes Source IP 1.2.128.10  0x01 0x02 0x80 0x0A
+	ldi r16, ip_S_Addr_A				; 4 bytes Source IP 1.2.128.10
 	st Z+, r16
 
 	ldi r16, ip_S_Addr_B
@@ -770,7 +843,7 @@ init_vars:
 	ldi r16, ip_S_Addr_D
 	st Z+, r16
 
-	ldi r16, ip_D_Addr_A				; 4 bytes Destination IP 1.2.128.5 0x01 0x02 0x80 0x05
+	ldi r16, ip_D_Addr_A				; 4 bytes Destination IP 
 	st Z+, r16
 
 	ldi r16, ip_D_Addr_B
