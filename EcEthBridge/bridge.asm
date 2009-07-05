@@ -167,15 +167,13 @@
 ; =======================================================================
 
 .equ	STACK_TOP		= 0x200
-
 .equ	adlc_state		= 0x201		; 1 byte
 .equ	adlc_rx_ptr		= 0x202		; 2 bytes
-.equ	MAC_addr_DA		= 0x204		; 6 bytes Stored in reverse order - Octet 5 - 0 
-.equ	MAC_addr_SA		= 0x20A		; 6 bytes Stored in reverse order - Octet 5 - 0 
 
-.equ	adlc_tmp_ptr	= 0x210		; 2 bytes
-.equ	ip_packet_ptr	= 0x212		; 2 bytes
-
+.equ	adlc_tmp_ptr	= 0x204		; 2 bytes
+.equ	ip_packet_ptr	= 0x206		; 2 bytes
+.equ	MAC_addr_DA		= 0x208		; 6 bytes Stored in reverse order - Octet 5 - 0 
+.equ	MAC_addr_SA		= 0x20E		; 6 bytes Stored in reverse order - Octet 5 - 0 
 .equ	packet_type		= 0x214		; 0214-0215 2 bytes Type IP 0x08 00
 .equ	ip_header		= 0x216		; 0216-0216 1 byte  Version :4 Header Length 20 bytes 0x45
 							; 0217-0217 1 byte  Differential Services Field 0x00
@@ -193,11 +191,16 @@
 .equ	udp_chksum		= 0x230		; 0230-0231 2 bytes checksum E9 B2
 .equ	udp_data		= 0x232		; 0232-     x bytes data 05 00 08 00 06 00 00 00 01 00 00 00
 
+.equ	cs8900_state	= 0x301		; 1 byte
+.equ	cs8900_rx_ptr	= 0x302		; 2 bytes
+.equ	cs8900_prevTxBidFail	= 0x304	; 1 byte
+.equ	cs8900_TxInProgress	= 0x305	; 1 byte
+
 ; some default values for the above
 .equ	ip_type		= 0x08
 .equ	ip_version		= 0x45
 .equ	ip_DSF		= 0x00
-.equ	ip_length		= 0x14		; the length of the data packet must be added to this
+.equ	ip_length		= 0x14		; header length, the length of the data packet must be added to this
 .equ	ip_TTL		= 0x40		; TTL
 .equ	ip_Protocol		= 0x11		; UDP
 .equ	udp_S_Port_MSB	= 0x80
@@ -207,6 +210,8 @@
 .equ	udp_header_length	= 0x08
 
 .include "config.inc"
+;equ	CS8900_TX_BUF	= 0x0400
+.equ	CS8900_RX_BUF	= 0x2200
 
 .equ	ECONET_RX_BUF	= 0x4000
 .equ	ECONET_TX_BUF	= 0x6000
@@ -219,11 +224,15 @@
 .equ	RX_DATA		= 1
 .equ	RX_SCOUT_ACK	= 2
 .equ	FRAME_COMPLETE	= 10
+.equ	PACKET_Rx		= 1
 
+; =======================================================================
+; == Set the initial vectors ============================================
+; =======================================================================
 
-jmp	reset
-jmp	adlc_irq
-rjmp	adlc_access
+jmp	reset						; Reset Vector
+jmp	adlc_irq					; Int0
+rjmp	adlc_access					; Int1
 nop
 
 
@@ -309,7 +318,7 @@ reset:
 
 	rcall init_vars
 
-	rcall	cs_init
+	rcall	cs8900_poll_init
 
 
 	; zero sram from 0x5000 to 0x7FFF
@@ -352,8 +361,6 @@ zero1:						; start loop around SRAM locations
 
 	ldi	r18, (1 << INT0)			; enable adlc interrupts
 	out	GICR, r18
-
-;	rcall	test_xmit
 	
 loop:
 	rcall	cs_poll
@@ -361,82 +368,42 @@ loop:
 	lds	r16, adlc_state			; check the adlc_state
 	cpi	r16, FRAME_COMPLETE		; is the frame complete?
 	breq	adlc_frame_completed		; yes, then print it to the screen
+
+	lds	r16, cs8900_state			; check the state of the ethernet
+	cpi	r16, PACKET_Rx			; is there a packet received?
+	breq	EthernetPacketRx			; yes, then print it to the screen
+
 	rjmp	loop					
 
 
 adlc_frame_completed:
-	rcall	cs_test_tx				; send it out on ethernet
-;	rcall	debug_adlc_SR			; debug output of the ADLC Status registers
+;	rcall output_econet_rx_buffer		; send it out on serial
+;	rcall	cs_test_tx				; send it out on ethernet
 
-;	rcall	output_frame_serial		; send frame to serial debugger
+
+	rcall	Eco
+	rcall space
+	rcall	rx
+	rcall space
+	rcall	ok
+;	rcall	crlf
 	rcall	adlc_ready_to_receive		; reset to the Rx ready state
 	rjmp	loop					; main loop
 
 
 
-; Output the completed frame to the serial
+EthernetPacketRx:
+;	rcall	output_ethernet_packet		; send frame to serial debugger
 
-output_frame_serial:
+;	rcall output_ethernet_rx_buffer	; send it out on serial
 
-
-	ldi	ZH, ECONET_RX_BUF >> 8		; set ZH with the highbyte of the Econet receive buffer
-	ldi	ZL, ECONET_RX_BUF & 0xff	; set XL with the lowbyte of the Econet receive buffer
-	lds	YH, adlc_rx_ptr + 1		; put the Rx pointer address in Y
-	lds	YL, adlc_rx_ptr
-
-	clr tmp
-	
-print_frame_loop:
-	ld	r16, Z+				; get byte from RxBuffer, and increment buffer address counter
-	rcall	serial_tx_hex			; output in hex
-	
-	ldi	r16, 32				; Space
-	rcall	serial_tx				; output
-	
-	cp	ZH, YH				; pointer = RxBuffer position high byte 
-	brne	print_frame_loop			; no, then continue and loop
-	
-	cp	ZL, YL				; pointer = RxBuffer position low byte
-	brne	print_frame_loop			; no, then continue and loop
+	rcall	ok
+	rcall	crlf
+	clr 	tmp
+	sts 	cs8900_state, tmp			; clear the status. Nothing in the buffer
+	rjmp	loop					; main loop
 
 
-	rcall	crlf					; finished outputting the Rx buffer contents, printer crlf
-	
-	ret
-
-
-
-; Temporary routine to print out the values stored for the status registers
-
-debug_adlc_SR:
-
-	ldi	r16, 0x53 				; "S"
-	rcall	serial_tx
-	ldi	r16, 0x20 				; " "
-	rcall serial_tx
-
-	ldi	ZH, ECONET_TX_BUF >> 8		; set ZH with the highbyte of the Econet Tx buffer
-	ldi	ZL, ECONET_TX_BUF & 0xff	; set XL with the lowbyte of the Econet Tx buffer
-	lds	YH, adlc_tmp_ptr + 1		; put the Tx pointer address in Y
-	lds	YL, adlc_tmp_ptr
-
-	clr tmp
-	
-print_sr_loop:
-	ld	r16, Z+				; get byte from RxBuffer, and increment buffer address counter
-	rcall	serial_tx_hex			; output in hex
-	
-	ldi	r16, 32				; Space
-	rcall	serial_tx				; output
-	
-	cp	ZH, YH				; pointer = RxBuffer position high byte 
-	brne	print_sr_loop			; no, then continue and loop
-	
-	cp	ZL, YL				; pointer = RxBuffer position low byte
-	brne	print_sr_loop			; no, then continue and loop
-
-	rcall	crlf					; finished outputting the Rx buffer contents, printer crlf
-	ret						; main loop
 
 econet_start_tx:
 	; switch to 1-byte mode, no PSE
@@ -476,18 +443,18 @@ tx_error2:
 	mov	r16, r17
 	rcall	serial_tx_hex
 	
-	ldi	r16, 0x46
+	ldi	r16, up_F
 	rjmp	serial_tx
 
 tx_error:
 	mov	r16, r17
 	rcall	serial_tx_hex
 	
-	ldi	r16, 0x45
+	ldi	r16, up_E
 	rjmp	serial_tx
 
 tx_saw_idle:	
-	ldi	r16, 0x49
+	ldi	r16, up_I
 	rjmp	serial_tx
 
 tx_got_ap:
@@ -585,160 +552,7 @@ egpio_write:
 ; == Serial =============================================================
 ; =======================================================================
 
-	; 115200bps bit time = 8.68us =~ 70 cycles @ 8MHz
-
-; -----------------------------------------------------------------------------------------
-; Serial Tx
-; -----------------------------------------------------------------------------------------
-;
-; r16 = byte to send (ASCII code)
-
-serial_tx:
-	push	r18					; preserve r18 to the stack
-	push 	XL					; X is used in the egpio_write routine
-	push	XH
-	in	r18, SREG				; read contents of status register
-	push	r18					; preserve status register to the stack including interrupt status
-	cli						; stop interrupts
-	mov	r18, r16				; put the byte to send in r18
-
-	; send start bit
-	ldi	r16, EGPIO_TP1			; sends 0 to data area of EGPIO_TP1 
-	rcall	egpio_write
-
-	ldi	tmp, 8				; set to loop through the 8 bits in the byte to send
-
-serial_tx_loop:
-	ldi	r16, 16				; set a wait loop for 16
-
-serial_tx_wait:
-	dec	r16					; minus 1
-	brne	serial_tx_wait			; loop if not finished
-							; The value to send has to be sent one bit at a time from 
-							; right to left
-	ror	r18					; move the bits to the right. bit 0-> C flag
-	brcc	send_0				; if lowest bit was clear branch to send_0
-	ldi	r16, EGPIO_TP1 | EGPIO_SET 	; otherwise next bit to send is 1
-	rjmp	send_x
-
-send_0:
-	ldi	r16, EGPIO_TP1			; bit to send is 0
-	nop
-	nop
-
-send_x:
-	rcall	egpio_write				; write the bit to the memory map
-
-	dec	tmp					; minus 1 for the outer tx loop that runs through the 8 bits
-	brne	serial_tx_loop			; loop if not finished
-
-	ldi	r16, 18				; set up another loop
-
-serial_tx_wait2:
-	dec	r16					; minus 1
-	brne	serial_tx_wait2			; loop until finished
-
-	; send stop bit
-	ldi	r16, EGPIO_TP1 | EGPIO_SET	; in the memory map EGPIO_TP1 = 1
-	rcall	egpio_write
-
-	ldi	r16, 100				; set up another wait loop
-
-serial_tx_wait3:
-	dec	r16					; minus 1
-	brne	serial_tx_wait3			; loop until finished
-		
-		
-	pop	r18					; retrieve SREG from the stack
-	out	SREG, r18				; restore SREG
-	pop	XH
-	pop	XL
-	pop	r18					; restore r18 from the stack
-	ret
-
-
-; -----------------------------------------------------------------------------------------
-; Serial Tx Hex
-; -----------------------------------------------------------------------------------------
-;
-; Ouput the byte to the serial in Hexadecimal
-;
-; r16 = byte
-
-serial_tx_hex:
-	push 	r16					; save register to the stack    
-	lsr	r16					; get the upper nibble first   
-	lsr	r16
-	lsr	r16
-	lsr	r16
-	rcall	serial_tx_nibble			; send the first value	
-	pop 	r16					; retrieve the saved value
-	andi	r16, 0xf				; seperate the lower nibble
-serial_tx_nibble:
-	cpi	r16, 10				; check the value is 0-9		
-	brcc	serial_tx_hex1			; > 10 goto serial_tx_hex1 to add the A-F hex value
-	ldi	tmp, 48				; tmp=48, the ASCII value offset from 0 for 0-9
-serial_tx_hex2:
-	add	r16, tmp				; add to the lower nibble to get the ASCII code
-	rjmp	serial_tx				; transmit
-serial_tx_hex1:
-	ldi	tmp, 55				; tmp=48, the ASCII value offset from 0 for A-F
-	rjmp	serial_tx_hex2			; jmp to add and transmit
-
-; -----------------------------------------------------------------------------------------
-; CRLF
-; -----------------------------------------------------------------------------------------
-;
-;output <cr><lf> to the serial debugger
-
-crlf:
-	ldi	r16, 13				; <CR> to r16
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 10				; <LF> to r16
-	rjmp	serial_tx				; output to serial
-
-; -----------------------------------------------------------------------------------------
-; debug
-; -----------------------------------------------------------------------------------------
-;
-; output "debug" to the serial debugger
-
-debug:
-	ldi	r16, 0x64				; "d"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x65				; "e"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x62				; "b"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x75				; "u"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x67				; "g"
-	rjmp	serial_tx				; ouput to serial
-
-; -----------------------------------------------------------------------------------------
-; No Clock
-; -----------------------------------------------------------------------------------------
-;
-; output "No Clock" to the serial debugger
-;
-noclock:
-	ldi	r16, 0x4E				; "N"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x6F				; "o"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x20				; " "
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x63				; "c"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x6C				; "l"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x6F				; "o"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x63				; "c"
-	rcall	serial_tx				; ouput to serial
-	ldi	r16, 0x6B				; "k"
-	rcall	crlf					; ouput CRLF
-
+.include "serial.asm"
 
 
 ; =======================================================================
@@ -789,6 +603,15 @@ test_xmit:
 
 .include "ip.asm"		
 
+
+; =======================================================================
+; == UDP ================================================================
+; =======================================================================
+;
+
+.include "udp.asm"
+
+
 ; =======================================================================
 ; == CS8900 =============================================================
 ; =======================================================================
@@ -802,13 +625,16 @@ test_xmit:
 ;
 init_vars:
 
+	clr r16
+	sts	cs8900_prevTxBidFail, r16
+	sts	cs8900_TxInProgress, r16
+
 	; MAC Address stored in reverse Octet 5-0
 
 	;load X with MAC_addr_SA
 	ldi	ZL, MAC_addr_SA & 0xff		; set ZL with the lowbyte of the MAC address
 	ldi	ZH, MAC_addr_SA >> 8		; set ZH with the highbyte of the MAC address
 
-	clr	r16					; 0x00
 	st	Z+,	r16				; Octet 5 of IA
 
 	ldi 	r17,	0x06				; use r17 to save clearing r16 again
@@ -904,3 +730,64 @@ init_vars:
 	st	Z, r16
 
 	ret
+
+
+
+; -----------------------------------------------------------------------------------------
+; CS8900 test_tx
+; -----------------------------------------------------------------------------------------
+;
+
+cs_test_tx:
+
+	
+	; use the econet rx buffer for data for the udp packet
+
+	ldi	r16, ECONET_RX_BUF & 0xff	; set ZL with the lowbyte of the Econet receive buffer
+	ldi	r17, ECONET_RX_BUF >> 8		; set ZH with the highbyte of the Econet receive buffer
+	lds	r18, adlc_rx_ptr
+	lds	r19, adlc_rx_ptr + 1		; put the Rx pointer address in Y
+
+	rcall create_udp_packet
+;	rcall output_udp_buffer
+
+	rcall create_ip_packet_udp
+;	rcall output_ip_buffer
+
+	rcall send_tx_packet
+
+ret
+
+
+; -----------------------------------------------------------------------------------------
+; send_tx_packet
+; -----------------------------------------------------------------------------------------
+;
+ 
+send_tx_packet:
+
+	; set the MAC address as the start of the packet location
+
+	;load Y with Mac_addr for DA
+	ldi	r16, MAC_addr_DA & 0xff		; set YL with the lowbyte of the MAC address
+	ldi	r17, MAC_addr_DA >> 8		; set YH with the highbyte of the MAC address
+
+
+	; Step2 : Get the length
+
+	; store ip header length
+	lds	r19, ip_TotalLength 		; get high byte of length
+	lds	r18, ip_TotalLength+1 		; get low byte of length
+
+	; add the 14 bytes for the Mac addresses and IP type to the total packet length
+	ldi	tmp, 14
+	add	r18, tmp
+	clr	tmp
+	adc	r19, tmp
+
+	rcall cs8900_poll_send
+
+
+ret
+
+
