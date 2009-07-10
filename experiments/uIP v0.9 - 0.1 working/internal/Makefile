@@ -1,0 +1,90 @@
+###############################################################################
+# Makefile for the project uIPexample
+###############################################################################
+
+## General Flags
+PROJECT = uIPexample
+MCU = atmega162
+TARGET = uIPexample.elf
+CC = avr-gcc
+
+## Options common to compile, link and assembly rules
+COMMON = -mmcu=$(MCU)
+
+## Compile options common for all C compilation units.
+CFLAGS = $(COMMON)
+CFLAGS += -Wall -gdwarf-2 -std=gnu99          -DF_CPU=8000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+
+## Assembly specific flags
+ASMFLAGS = $(COMMON)
+ASMFLAGS += $(CFLAGS)
+ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
+
+## Linker flags
+LDFLAGS = $(COMMON)
+LDFLAGS +=  -Wl,-Map=uIPexample.map
+
+
+## Intel Hex file production flags
+HEX_FLASH_FLAGS = -R .eeprom -R .fuse -R .lock -R .signature
+
+HEX_EEPROM_FLAGS = -j .eeprom
+HEX_EEPROM_FLAGS += --set-section-flags=.eeprom="alloc,load"
+HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
+
+
+## Objects that must be built in order to link
+OBJECTS = main.o rtl8019.o cs8900.o nic.o ax88796.o uip.o 
+
+## Objects explicitly added by the user
+LINKONLYOBJECTS = 
+
+## Build
+all: $(TARGET) uIPexample.hex uIPexample.eep uIPexample.lss size
+
+## Compile
+main.o: ../main.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+rtl8019.o: ../rtl8019.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+cs8900.o: ../cs8900.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+nic.o: ../nic.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+ax88796.o: ../ax88796.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+uip.o: ../uip.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+##Link
+$(TARGET): $(OBJECTS)
+	 $(CC) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)
+
+%.hex: $(TARGET)
+	avr-objcopy -O ihex $(HEX_FLASH_FLAGS)  $< $@
+
+%.eep: $(TARGET)
+	-avr-objcopy $(HEX_EEPROM_FLAGS) -O ihex $< $@ || exit 0
+
+%.lss: $(TARGET)
+	avr-objdump -h -S $< > $@
+
+size: ${TARGET}
+	@echo
+	@avr-size -C --mcu=${MCU} ${TARGET}
+
+## Clean target
+.PHONY: clean
+clean:
+	-rm -rf $(OBJECTS) uIPexample.elf dep/* uIPexample.hex uIPexample.eep uIPexample.lss uIPexample.map
+
+
+## Other dependencies
+-include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
+
