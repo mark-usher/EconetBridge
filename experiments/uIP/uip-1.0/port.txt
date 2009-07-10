@@ -1,0 +1,17 @@
+1. Read the documentation provided above.
+
+2. Create a new directory for your port under the uip-1.0/ directory (choose a name that gives a short description of the CPU architecture and/or C compiler used).
+  
+3. Copy the uip_arch.c file from the unix/ subdirectory into the new directory. Is contains a generic C implementations of the checksum algorithm as well as the 32-bit addition function.
+  
+4. Copy the uipopt.h file from the unix/ subdirectory.
+  
+5. Edit the uipopt.h file to suit your project (the file should be self-explanatory).
+  
+6. Write a device driver for your particular hardware. (This is probably the hardest part.) Look in unix/tapdev.c and uip/slipdev.c for examples of how a device driver can look.
+  
+7. Write the main control loop so that the uIP functions are called when they should be. Look in the unix/main.c for an example of how a main control loop can look. The unix/main.c main loop also shows how ARP is used.
+  
+8. Write a makefile and compile the code. Be sure to include the ../uip/uip.c file in your project (and the .c files in your subdirectory, of course). If you are using the web server application, also include the files ../apps/httpd/httpd.c ../apps/httpd/cgi.c ../apps/httpd/fs.c. For ARP support, also include the file ../uip/uip_arp.c.
+  
+9. Find and correct all bugs.
