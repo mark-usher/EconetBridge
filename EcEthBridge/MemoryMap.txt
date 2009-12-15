@@ -1,0 +1,14 @@
+
+0x0000 0x001F 32 Registers
+0x0020 0x005F 64 I/O Registers	
+0x0060 0x00FF Ext. IO Registers 40 words
+0x0100 0x04FF Internal SRAM 1024 x8
+0x0500 0x7FFF External SRAM 32K x8
+0x1C00 0x1FFF Boot Flash Section
+
+Upper Memory Block - hardware mapped in. No RAM
+0x8000 0x800F CS8900 16 words
+0xC000 0xC001 EGPIO   1 word
+
+----EEPROM---
+0x0000 0x0512 Start 512 x8

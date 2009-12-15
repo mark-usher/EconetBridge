@@ -171,31 +171,66 @@ await_end:
 	rjmp	adlc_write
 
 ; -----------------------------------------------------------------------------------------
-; ADLC process_fv Frame Valid
+; ADLC rx_overrun
 ; -----------------------------------------------------------------------------------------
 ;
+rx_overrun:
+	ldi	r16, 0x6F				; "o" - overrun
+	rcall serial_tx				; 
+	rjmp 	abandon_rx
+
+; -----------------------------------------------------------------------------------------
+; ADLC process_dcd - No Clock
+; -----------------------------------------------------------------------------------------
 ;
-; exit : adlc_state = FRAME COMPLETE
-; 
-process_fv:
-	rcall	adlc_rx_flush			; clear remaining bytes in the input buffer
-
-	ldi	r16, FRAME_COMPLETE		;
-	sts	adlc_state, r16			; set ADLC state to FRAME COMPLETE
-
-	ldi	r16, ADLC_CR1			; write to Control Register 1
-	ldi	r17, CR1_TXRESET			; Tx Reset
-	rcall	adlc_write				; write to ADLC
-
+process_dcd:
+	ldi	r16, 0x6E				; "n" - no clock
+	rcall serial_tx				; 
+;	rcall noclock
 	rjmp	adlc_irq_ret			; return from interrupt
 
 
-
 ; -----------------------------------------------------------------------------------------
-; ADLC IRQ
+; ADLC rx_error	Receive Error
 ; -----------------------------------------------------------------------------------------
 ;
+rx_error:
+	ldi		r16, 0x65			; "e" - error
+	rcall 	serial_tx			; 
+	rcall	adlc_rx_flush			; clear any remaing bytes
 
+; -----------------------------------------------------------------------------------------
+; ADLC abandon_rx Abandon Rx
+; -----------------------------------------------------------------------------------------
+;
+; exit: adlc_state = 0
+; 
+abandon_rx:
+	; abandon in-progress reception
+	clr	adlc_state
+	rcall	adlc_clear_rx			; clear rx status
+	rjmp	process_s2rq			; might be AP as well
+
+; -----------------------------------------------------------------------------------------
+; ADLC process_idle
+; -----------------------------------------------------------------------------------------
+;
+; exit: adlc_state = 0
+; 
+process_idle:					
+	ldi	r16, 0x69				; append "i" - network is idle
+	call	serial_tx				; write to serial
+	rcall	crlf
+
+	clr	adlc_state
+	
+	rcall	adlc_clear_rx			; clear Rx Status Register
+	rjmp	adlc_irq_ret			; clean up routine for interrupt handling
+
+; -----------------------------------------------------------------------------------------
+; ADLC IRQ main entry point
+; -----------------------------------------------------------------------------------------
+;
 adlc_irq:	
 	push	tmp					; save register values to the stack
 	push	r16
@@ -217,7 +252,7 @@ adlc_irq:
 	brbs	6, process_s2rq			; yes
 
 ;this hasn't occurred so far
-	ldi	r16, up_V				; "V" - valid CRC is Valid
+	ldi	r16, 0x56				; "V" - valid CRC is Valid
 	rcall	serial_tx				; write to serial
 
 	rjmp	adlc_irq_ret			; clean up routine for interrupt handling
@@ -244,6 +279,21 @@ process_s2rq:
 	bst	r17, 1				; 2 ;FV: Frame Valid?
 	brbs	6, process_fv			;   ;yes
 
+; -----------------------------------------------------------------------------------------
+; ADLC process_fv Frame Valid
+; -----------------------------------------------------------------------------------------
+;
+;
+; exit : adlc_state = FRAME COMPLETE
+; 
+process_fv:
+	rcall	adlc_rx_flush			; clear remaining bytes in the input buffer
+
+	ldi	r16, FRAME_COMPLETE		;
+	mov	adlc_state, r16			; set ADLC state to FRAME COMPLETE
+
+	rjmp	adlc_irq_ret			; return from interrupt
+
 
 ; -----------------------------------------------------------------------------------------
 ; ADLC process_ap Address Present
@@ -253,7 +303,7 @@ process_s2rq:
 ; first byte of the packet. This byte being present causes the Rx Interrupt if enabled.
 
 process_ap:
-;	ldi	r16, lo_a				; "a"
+;	ldi	r16, 0x61				; "a"
 ;	call	serial_tx				; send to serial
 
 	lds	XL, adlc_rx_ptr			; put the Rx buffer pointer address in X
@@ -268,12 +318,10 @@ process_ap:
 	sts	adlc_rx_ptr, XL			; store the incremented Rx buffer pointer
 	sts	adlc_rx_ptr + 1, XH		; 
 
-	lds	r16, adlc_state			; add 1 to adlc_state
-	inc	r16
-	sts	adlc_state, r16
+	inc	adlc_state
 
 ;delay	
-	ldi	r16, 160				; set up delay loop
+	ldi	r16, 220				; set up delay loop
 delay:
 	dec	r16					; minus 1
 	brne	delay					; loop until finished
@@ -287,9 +335,6 @@ delay:
 ;
 
 process_rda:
-;	ldi	r16, lo_r				; "r" - rda entered
-;	rcall serial_tx				; 
-
 	lds	XL, adlc_rx_ptr			; put the Rx buffer pointer address in X
 	lds	XH, adlc_rx_ptr + 1
 
@@ -308,69 +353,50 @@ process_rda:
 	sts	adlc_rx_ptr, XL			; store the incremented Rx buffer pointer
 	sts	adlc_rx_ptr + 1, XH		; 
 
+	;;  if we're receiving payload, we already decided this packet was good.  Nothing more to do.
+	mov	r16, adlc_state
+	cpi	r16, RX_DATA
+	breq	adlc_irq_ret
+
+	inc	adlc_state
+
+	;;  if this was the first RDA event for a frame, we need more data.
+	cpi	r16, RX_CHECK_NET1
+	breq	adlc_irq_ret
+	cpi	r16, RX_SCOUT_ACK1
+	breq	adlc_irq_ret
+
+	;;  now we have the full destination address, check if this is a packet we wanted
+	cpi	r16, RX_CHECK_NET2
+	breq	check_dst_net
+
+	;; if we get here, something is wrong.  Reset and start over.
+	rjmp	discontinue
+
+check_dst_net:	
+	lds	r16, ECONET_RX_BUF + 1
+	rcall	interesting_network
+	brcs	adlc_irq_ret
+	brne	discontinue
+
 	rjmp	adlc_irq_ret			; return from interrupt
 
+discontinue:
+	ldi	r16, ADLC_CR1
+	ldi	r17, CR1_TXRESET | CR1_RIE | CR1_DISCONTINUE
+	rcall	adlc_write
 
+adlc_rx_reset:	
+	clr	adlc_state
 
-; -----------------------------------------------------------------------------------------
-; ADLC rx_overrun
-; -----------------------------------------------------------------------------------------
-;
-rx_overrun:
-	ldi	r16, lo_o				; "o" - overrun
-	rcall serial_tx				; 
-	rjmp 	abandon_rx
-
-; -----------------------------------------------------------------------------------------
-; ADLC process_dcd - No Clock
-; -----------------------------------------------------------------------------------------
-;
-process_dcd:
-	ldi	r16, lo_n				; "n" - no clock
-	rcall serial_tx				; 
-;	rcall noclock
-	rjmp	adlc_irq_ret			; return from interrupt
-
-
-; -----------------------------------------------------------------------------------------
-; ADLC rx_error	Receive Error
-; -----------------------------------------------------------------------------------------
-;
-rx_error:
-	ldi		r16, lo_e			; "e" - error
-	rcall 	serial_tx			; 
-	rcall	adlc_rx_flush			; clear any remaing bytes
-
-; -----------------------------------------------------------------------------------------
-; ADLC abandon_rx Abandon Rx
-; -----------------------------------------------------------------------------------------
-;
-; exit: adlc_state = 0
-; 
-abandon_rx:
-	; abandon in-progress reception
-	clr	tmp
-	sts	adlc_state, tmp			; clear the adlc_state
-	rcall	adlc_clear_rx			; clear rx status
-	rjmp	process_s2rq			; might be AP as well
-
-; -----------------------------------------------------------------------------------------
-; ADLC process_idle
-; -----------------------------------------------------------------------------------------
-;
-; exit: adlc_state = 0
-; 
-process_idle:					
-	ldi	r16, lo_i				; append "i" - network is idle
-	call	serial_tx				; write to serial
-	rcall	crlf
-
-	clr	tmp					; tmp=0
-	sts	adlc_state, tmp			; ADLC state=0
+	; reset rx buffer pointer
+	ldi	XL, ECONET_RX_BUF & 0xff	; set XL with the lowbyte of the Econet receive buffer
+	ldi	XH, ECONET_RX_BUF >> 8		; set XH with the highbyte of the Econet receive buffer
 	
-	rcall	adlc_clear_rx			; clear Rx Status Register
-	rjmp	adlc_irq_ret			; clean up routine for interrupt handling
+	sts	adlc_rx_ptr, XL			; set ALDC receive ptr to the start of the Rx buffer
+	sts	adlc_rx_ptr + 1, XH
 
+	rjmp	adlc_irq_ret
 
 
 ; -----------------------------------------------------------------------------------------
@@ -380,8 +406,12 @@ process_idle:
 adlc_rx_flush:
 	; switch to 1-byte mode, no PSE
 	ldi	r16, ADLC_CR2			; set to write to Control Register 2
-	ldi	r17, CR2_RTS | CR2_FLAGIDLE
+	ldi	r17, CR2_FLAGIDLE | CR2_RTS
 	rcall	adlc_write				; write to Control Register
+
+	ldi	r16, ADLC_CR1
+	ldi	r17, 0
+	rcall	adlc_write
 
 	; read SR2
 	ldi	r16, ADLC_SR2			; read Status Register 2
@@ -404,9 +434,12 @@ adlc_rx_flush:
 	sts	adlc_rx_ptr, XL			; store the incremented Rx buffer pointer
 	sts	adlc_rx_ptr + 1, XH		; 
 
-
 no_rda:
-	rjmp	adlc_clear_rx			; clear rx status
+	ldi	r16, ADLC_CR2			; set to write to Control Register 2
+	ldi	r17, CR2_FLAGIDLE | CR2_RTS | CR2_CLRRX | CR2_PSE | CR2_TWOBYTE
+	rcall	adlc_write				; write to Control Register
+
+	ret
 
 
 ; -----------------------------------------------------------------------------------------
@@ -506,9 +539,8 @@ adlc_ready_to_receive:
 	rcall	adlc_write				; write to the ADLC
 
 	;initialise the adlc_state
-	
-	clr	tmp					; tmp = 0
-	sts	adlc_state, tmp			; adlc_state=0
+
+	clr	adlc_state
 
 	; initialise the Rx Buffer pointer
 
@@ -521,3 +553,33 @@ adlc_ready_to_receive:
 	ldi	r17, CR1_RIE | CR1_TXRESET	; Enable Receive interrupts | Reset the TX status
 	ldi	r16, ADLC_CR1			; set to write to Control Register 1
 	rjmp	adlc_write				; write to the ADLC
+
+; -----------------------------------------------------------------------------------------
+; Examine the network number and figure out whether it's something we are interested in.
+; -----------------------------------------------------------------------------------------
+;
+;  entry: r16=network number
+;  exit:  C set -> do want this frame
+;         Z set -> don't want this frame
+;	  C,Z both clear -> need to check station number too 
+
+interesting_network:
+	cpi	r16, 0xff
+	breq	yes_network
+	
+	clc
+	clz
+	ret
+
+yes_network:
+	sec
+	clz
+	ret
+
+no_network:
+	sez
+	clc
+	ret
+	
+	
+

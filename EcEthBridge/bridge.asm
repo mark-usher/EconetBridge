@@ -30,6 +30,8 @@
 .def	chksumM		= r1
 .def	chksumH		= r2
 
+.def	adlc_state		= r15
+
 .def	WL			= r16
 .def	WH			= r17
 
@@ -167,7 +169,7 @@
 ; =======================================================================
 
 .equ	STACK_TOP		= 0x200
-.equ	adlc_state		= 0x201		; 1 byte
+
 .equ	adlc_rx_ptr		= 0x202		; 2 bytes
 
 .equ	adlc_tmp_ptr	= 0x204		; 2 bytes
@@ -202,12 +204,12 @@
 .equ	ip_DSF		= 0x00
 .equ	ip_length		= 0x14		; header length, the length of the data packet must be added to this
 .equ	ip_TTL		= 0x40		; TTL
-.equ	ip_Protocol		= 0x11		; UDP
+;.equ	ip_Protocol		= 0x11		; UDP
 .equ	udp_S_Port_MSB	= 0x80
 .equ	udp_S_Port_LSB	= 0x80
 .equ	udp_D_Port_MSB	= 0x80
 .equ	udp_D_Port_LSB	= 0x00
-.equ	udp_header_length	= 0x08
+;.equ	udp_header_length	= 0x08
 
 .include "config.inc"
 ;equ	CS8900_TX_BUF	= 0x0400
@@ -221,9 +223,12 @@
 
 
 .equ	RX_IDLE		= 0
-.equ	RX_DATA		= 1
-.equ	RX_SCOUT_ACK	= 2
-.equ	FRAME_COMPLETE	= 10
+.equ	RX_CHECK_NET1	= 1
+.equ	RX_CHECK_NET2	= 2
+.equ	RX_DATA		= 3
+.equ	RX_SCOUT_ACK1	= 16
+.equ	RX_SCOUT_ACK2	= 17
+.equ	FRAME_COMPLETE	= 32
 .equ	PACKET_Rx		= 1
 
 ; =======================================================================
@@ -316,10 +321,9 @@ reset:
 
 	rcall	egpio_init
 
-	rcall init_vars
+	rcall	init_vars
 
 	rcall	cs8900_poll_init
-
 
 	; zero sram from 0x5000 to 0x7FFF
 	ldi	ZH, 0x5				; High byte Z 0x5
@@ -358,15 +362,18 @@ zero1:						; start loop around SRAM locations
 ;	rcall	NoClock				; print no clock
 ;clock_present:
 
+;	rcall	send_reset	
 
 	ldi	r18, (1 << INT0)			; enable adlc interrupts
 	out	GICR, r18
-	
+
+;	rcall	test_xmit	
+		
 loop:
 	rcall	cs_poll
 
-	lds	r16, adlc_state			; check the adlc_state
-	cpi	r16, FRAME_COMPLETE		; is the frame complete?
+	ldi	r16, FRAME_COMPLETE		; is the frame complete?
+	cp	adlc_state, r16 
 	breq	adlc_frame_completed		; yes, then print it to the screen
 
 	lds	r16, cs8900_state			; check the state of the ethernet
@@ -378,12 +385,16 @@ loop:
 
 adlc_frame_completed:
 ;	rcall output_econet_rx_buffer		; send it out on serial
-;	rcall	cs_test_tx				; send it out on ethernet
-
+	rcall	cs_test_tx				; send it out on ethernet
 
 	rcall	Eco
 	rcall space
-	rcall	rx
+	rcall	tx
+	rcall space
+	lds	r16, ip_ID				; output packet number
+	rcall serial_tx_hex
+	lds	r16, ip_ID +1  
+	rcall serial_tx_hex
 	rcall space
 	rcall	ok
 ;	rcall	crlf
@@ -404,6 +415,11 @@ EthernetPacketRx:
 	rjmp	loop					; main loop
 
 
+tx_bcast:
+	mov	YL, ZL
+	mov	YH, ZH
+	ldi	r20, 0
+	rjmp	adlc_tx_frame
 
 econet_start_tx:
 	; switch to 1-byte mode, no PSE
@@ -419,6 +435,9 @@ tx_await_idle:
 
 	ldi	XL, ECONET_TX_BUF & 0xff
 	ldi	XH, ECONET_TX_BUF >> 8
+	ld	r16, X
+	cpi	r16, 255
+	breq	tx_bcast
 	mov	YL, XL
 	mov	YH, XH
 	ldi	r16, 6
@@ -469,16 +488,16 @@ tx_got_ap:
 	sts	adlc_rx_ptr, XL			; set ALDC receive ptr to the start of the Rx buffer
 	sts	adlc_rx_ptr + 1, XH
 
-	ldi	r16, RX_SCOUT_ACK
-	sts	adlc_state, r16
+	ldi	r16, RX_SCOUT_ACK1
+	mov	adlc_state, r16
 
 	ldi	r16, ADLC_CR1
 	ldi	r17, CR1_RIE | CR1_TXRESET
 	rcall	adlc_write
 
 tx_wait_frame:
-	lds	r16, adlc_state
-	cpi	r16, FRAME_COMPLETE
+	ldi	r16, FRAME_COMPLETE
+	cp	adlc_state, r16
 	brne	tx_wait_frame
 
 	ldi	XL, ECONET_TX_BUF & 0xff
@@ -593,6 +612,25 @@ test_xmit:
 
 	rjmp	econet_start_tx
 
+send_reset:	
+	ldi	ZH, ECONET_TX_BUF >> 8
+	ldi	ZL, ECONET_TX_BUF & 0xff
+
+	ldi	r16, 0xff
+	st	Z+, r16	
+	st	Z+, r16	
+	clr	r16
+	st	Z+, r16	
+	st	Z+, r16	
+	ldi	r16, 0x80
+	st	Z+, r16	
+	ldi	r16, 0x9c
+	st	Z+, r16
+	ldi	r16, 0x3
+	st	Z+, r16
+
+	rjmp	econet_start_tx
+
 .include "adlc.asm"
 
 
@@ -618,6 +656,13 @@ test_xmit:
 
 
 .include "cs8900.asm"
+
+; =======================================================================
+; == EEPROM =============================================================
+; =======================================================================
+
+
+.include "eeprom.asm"
 
 ; =======================================================================
 ; == Initialise some variables ==========================================
@@ -693,7 +738,7 @@ init_vars:
 	ldi	r16, ip_TTL				; 1 byte  TTL   64  0x40
 	st	Z+, r16
 
-	ldi	r16, ip_Protocol			; 1 byte  Protocol UDP 0x11
+	ldi	r16, UIP_PROTO_UDP		; 1 byte  Protocol UDP 0x11
 	st	Z+, r16
 						
 	st	Z+, r17				; 2 bytes Header Checksum 0x77 0x26
