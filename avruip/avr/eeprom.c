@@ -6,7 +6,7 @@
 
 //sDefaults_t INIT EEMEM =
 sDefaults_t INIT =
-		{0xAA, EEPROM_VALID, MACHINE_VER_HIGH,MACHINE_VER_LOW,	/* Safety, Initted, VER HIGH, VER LOW */
+		{0xAA, EEPROM_VALID, MACHINE_VER_HIGH, MACHINE_VER_LOW,	/* Safety, Initted, VER HIGH, VER LOW */
 		0, 1, 0x51, 130,				/* Clock, Econet Net, Station, Ethernet Net */
 		1, 2, 128, 10,					/* IP Address */
 		255,255, 0, 0,					/* Subnet Mask */
