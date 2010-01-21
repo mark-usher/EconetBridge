@@ -20,7 +20,7 @@
 #include "aun.h"
 
 
-unsigned char Econet_Peek(unsigned char *Net, unsigned char *Stn)
+unsigned char Econet_Find(unsigned char *Net, unsigned char *Stn)
 {
 
 

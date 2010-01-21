@@ -24,7 +24,7 @@
 
 
 
-unsigned char Econet_Peek(unsigned char*, unsigned char*);
+unsigned char Econet_Find(unsigned char*, unsigned char*);
 
 
 
