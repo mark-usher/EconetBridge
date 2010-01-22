@@ -40,8 +40,40 @@ extern uint8_t rTableEthType[256];
 
 // boolean flags for the routing table
 #define NOT_ROUTABLE	0x0
-#define ROUTABLE 	0xFF
-#define LOCAL_NETWORK 	0
+#define ROUTABLE 		0xFF
+#define LOCAL_NETWORK 	0x0
+
+
+
+
+
+struct EconetRouting
+{
+u_char	pad[UIP_LLH_LEN];
+u_char	Network;
+u_char	Station;
+};
+
+
+struct Econet_Header {
+	unsigned char DSTN;
+	unsigned char DNET;
+	unsigned char SSTN;
+	unsigned char SNET;
+	unsigned char CB;
+	unsigned char PORT;
+	unsigned char DATA1;
+	unsigned char DATA2;
+	unsigned char DATA3;
+	unsigned char DATA4;
+	unsigned char DATA5;
+	unsigned char DATA6;
+	unsigned char DATA7;
+	unsigned char DATA8;
+};
+
+
+
 
 /* module.h
  *
@@ -53,9 +85,40 @@ extern uint8_t rTableEthType[256];
  */
 
 
-/* machine types returned by Econet_PeekMachine SWI */
-#define MACHINE_TYPE_ARC      7
-#define MACHINE_TYPE_RISC_PC 15
+/* machine types returned by Econet_PeekMachine SWI (Immediate Op MachineType) */
+#define MACHINE_TYPE_BBC	1
+#define MACHINE_TYPE_ATOM	2
+#define MACHINE_TYPE_SYSTEM34	3
+#define MACHINE_TYPE_SYSTEM5	4
+#define MACHINE_TYPE_MASTER128	5
+#define MACHINE_TYPE_ELECTRON	6
+#define MACHINE_TYPE_ARCHIMEDES	7
+#define MACHINE_TYPE_COMMUNICATOR	9
+#define MACHINE_TYPE_MASTERET	10
+#define MACHINE_TYPE_FILESTORE	11
+#define MACHINE_TYPE_COMPACT	12
+#define MACHINE_TYPE_ECOLINK	13
+#define MACHINE_TYPE_UNIX	14
+#define MACHINE_TYPE_RISCPC	15
+#define MACHINE_TYPE_IYONIX	16
+#define MACHINE_TYPE_A9		17
+//JGH
+#define MACHINE_TYPE_SPECTRUM	0x1040
+#define MACHINE_TYPE_AMSTRADCPC	0x1041
+//PB
+#define MACHINE_TYPE_IGATEWAY	0x5050
+#define MACHINE_VER_LOW		0x01
+#define MACHINE_VER_HIGH	0x00
+//SJ
+#define MACHINE_TYPE_GPSERVER	0xFFF8
+#define MACHINE_TYPE_SJUNIX	0xFFF9
+#define MACHINE_TYPE_SCSI	0xFFFA
+#define MACHINE_TYPE_SJPC	0xFFFB
+#define MACHINE_TYPE_NASCOM2	0xFFFC
+#define MACHINE_TYPE_480Z	0xFFFD
+#define MACHINE_TYPE_FSERVER	0xFFFE
+#define MACHINE_TYPE_Z80CPM	0xFFFF
+ 
 
 extern unsigned char machine_type;
 
@@ -246,7 +309,15 @@ struct mns_msg
    u_char	mns_opcode;
    u_char	mns_port;
    u_char	mns_control;
-#define Econet_MachinePeek        8
+// immediate OPS		
+#define Econet_Peek		1	// peek	
+#define Econet_Poke		2	// poke
+#define Econet_JSR		3	// Jump to Subroutine
+#define Econet_UPC		4	// User Procedure Call
+#define Econet_Imm05		5	// unknown 
+#define Econet_Halt		6	// Halt
+#define Econet_Continue		7	// Continue
+#define Econet_MachineType	8	// Machine Type
    u_char	mns_status;
 #define MSG_IS_RETRY    01
 #define MSG_IS_DATAGRAM 02
@@ -421,15 +492,22 @@ struct txcb
 //static void check_entries(void);
 
 
-void do_immediate(void) ;
-
-extern void aun_send_packet (uint8_t cb, uint8_t port, uint16_t src_stn_net, uip_ipaddr_t dest_ip, uint16_t data_length);
-extern void aun_send_immediate (struct scout_packet *s, uint32_t dest_ip, uint16_t data_length);
-extern void aun_send_broadcast (struct scout_packet *s, uint16_t data_length);
-extern uint8_t aun_want_proxy_arp(uint16_t *ipaddr);
-extern void aun_tx_complete (int8_t status, struct tx_record *tx);
+//static void do_uip_send(void);
 extern void aun_init(void);
+void aun_poller(void);
+void aun_appcall(void);
+void do_atp(unsigned char *Net, unsigned char *Stn);
 extern void foward_packet(struct wan_packet *w, unsigned short pkt_len, uint8_t type);
+extern void aun_send_immediate (struct scout_packet *s, uint32_t dest_ip, uint16_t data_length);
+extern void aun_send_packet (uint8_t cb, uint8_t port, uint16_t src_stn_net, uip_ipaddr_t dest_ip, uint16_t data_length);
+extern void aun_send_broadcast (struct scout_packet *s, uint16_t data_length);
+extern void aun_tx_complete (int8_t status, struct tx_record *tx);
+extern uint8_t aun_want_proxy_arp(uint16_t *ipaddr);
+
+//void do_immediate(void);
+
+
+
 
 #endif /* __AUN_H__ */
 /** @} */
