@@ -294,7 +294,7 @@ adlc_tx_frame:
 	ldi	r24, EGPIO_ECONET_GREEN
 	rcall	egpio_write
 
-	ldi	r23, 0
+	ldi	r23, 5
 	; go on the wire and start transmitting
 	ldi	tmp2, CR1_RXRESET
 	rcall	adlc_write_cr1
@@ -312,7 +312,7 @@ await_tdra:
 	ldi	tmp1, ADLC_SR1
 	rcall	adlc_read
 	bst	tmp2, 6				; TDRA?
-	brbs	6, skip
+	brbs	6, got_tdra
 	cpi	tmp2, 0
 	breq	await_tdra
 
@@ -324,21 +324,20 @@ await_tdra:
 	ldi	r22, 1
 	rjmp	abandon_tx
 
-skip:	
-	ld	tmp2, Y+
-	cpi	r22, 0
+got_tdra:
+      cpi	r22, 0
+      brne	not_data
+      dec	r23
 	brne	not_data
-	inc	r23
-	cpi	r23, 5
-	breq	skip
-	cpi	r23, 6
-	breq	skip
+      adiw	YL, 2
+      subi	r21, 2
 	
 not_data:
+	ld	tmp2, Y+
 	dec	r21
 	brne	not_end
 	cpi	XL, 0
-	cpc	XH, r1
+	cpc	XH, zero_reg
 	brne	not_end
 	
 tx_end:	
@@ -368,7 +367,7 @@ abandon_tx:
 
 	; reset tx
 	ldi	tmp2, CR1_RIE | CR1_TXRESET	; Enable Receive interrupts | Reset the TX status
-	rcall	adlc_write_cr1				; write to the ADLC
+	rcall	adlc_write_cr1			; write to the ADLC
 
 	ldi	r24, EGPIO_ECONET_GREEN | EGPIO_SET
 	rcall	egpio_write
@@ -391,9 +390,9 @@ not_end:
 ; -----------------------------------------------------------------------------------------
 ;
 rx_overrun:
-	ldi	serial_tx_arg, 0x6F				; "o" - overrun
+	ldi	serial_tx_arg, 0x6F		; "o" - overrun
 	rcall serial_tx
-	rcall 	adlc_ready_to_receive_scout
+	rcall	adlc_ready_to_receive_scout
 	rjmp	adlc_irq_ret
 	
 ; -----------------------------------------------------------------------------------------
@@ -413,7 +412,7 @@ process_dcd:
 ;
 rx_error:
 	ldi	serial_tx_arg, 0x65		; "e" - error
-	rcall 	serial_tx			; 
+	rcall	serial_tx			; 
 	rcall	adlc_rx_flush			; clear any remaing bytes
 
 ; -----------------------------------------------------------------------------------------
@@ -489,8 +488,8 @@ process_s2rq:
 process_fv:
 	rcall	adlc_rx_flush			; clear remaining bytes in the input buffer
 
-        mov     tmp1, adlc_state
-        ori     tmp1, FRAME_COMPLETE
+      mov	tmp1, adlc_state
+      ori	tmp1, FRAME_COMPLETE
 	mov	adlc_state, tmp1			; set ADLC state to FRAME COMPLETE
 
 	rjmp	adlc_irq_ret			; return from interrupt
@@ -519,7 +518,7 @@ process_ap:
 	movw	XL, adlc_rx_ptr_lo
 
 	; Read 1 byte to the buffer
-	rcall	adlc_read_rx				; read ADLC, tmp2 = data read
+	rcall	adlc_read_rx			; read ADLC, tmp2 = data read
 
 	st	X+, tmp2				; store the data read in the Rx buffer
 
@@ -548,11 +547,11 @@ process_rda:
 	; read 2 bytes to the buffer
 
 	; 1st byte
-	rcall	adlc_read_rx				; read ADLC, tmp2 = data read
+	rcall	adlc_read_rx			; read ADLC, tmp2 = data read
 	st	X+, tmp2				; store the data read in the Rx buffer
 
 	; 2nd byte
-	rcall	adlc_read_rx				; read ADLC, tmp2 = data read
+	rcall	adlc_read_rx			; read ADLC, tmp2 = data read
 	st	X+, tmp2				; store the data read in the Rx buffer
 
 	movw	adlc_rx_ptr_lo, XL
@@ -564,8 +563,8 @@ process_rda:
 	brcc	is_full
 
 	;;  if we're receiving payload, we already decided this packet was good.  Nothing more to do.
-        mov     tmp1, adlc_state
-        andi    tmp1, 15
+	mov	tmp1, adlc_state
+	andi	tmp1, 15
 	cpi	tmp1, RX_PAYLOAD
 	breq	adlc_irq_ret
 
@@ -616,7 +615,7 @@ discontinue:
 adlc_rx_flush:
 	; switch to 1-byte mode, no PSE
 	ldi	tmp2, CR2_FLAGIDLE | CR2_RTS
-	rcall	adlc_write_cr2				; write to Control Register
+	rcall	adlc_write_cr2			; write to Control Register
 
 	ldi	tmp2, 0
 	rcall	adlc_write_cr1
@@ -633,7 +632,7 @@ adlc_rx_flush:
 	movw	XL, adlc_rx_ptr_lo
 
 	; Read 1 byte to the buffer
-	rcall	adlc_read_rx				; read ADLC, tmp2 = data read
+	rcall	adlc_read_rx			; read ADLC, tmp2 = data read
 
 	st	X+, tmp2				; store the data read in the Rx buffer
 
@@ -653,8 +652,8 @@ no_rda:
 
 adlc_clear_rx:
 	clr	adlc_state
-	ldi	tmp2, CR2val				; reset Receieve status bits
-	rjmp	adlc_write_cr2				; write to ADLC
+	ldi	tmp2, CR2val			; reset Receieve status bits
+	rjmp	adlc_write_cr2			; write to ADLC
 
 ; -----------------------------------------------------------------------------------------
 ; ADLC IRQ ret
@@ -723,7 +722,7 @@ adlc_init:
 	rcall	adlc_write				; write to ADLC
 
 	ldi	tmp2, CR1_TXRESET | CR1_RXRESET ;  keep transmitter and receiver reset, irqs off, back to CR2
-	rcall	adlc_write_cr1				; write to the ADLC
+	rcall	adlc_write_cr1			; write to the ADLC
 
 	;;  fall through
 	
@@ -747,13 +746,13 @@ adlc_ready_to_receive:
 	rcall	init_rx_buf
 
 	ldi	tmp2, CR1_TXRESET			; reset tx, unreset rx
-	rcall	adlc_write_cr1				; write to the ADLC
+	rcall	adlc_write_cr1			; write to the ADLC
 
-	ldi	tmp2, CR2val				; Status bit prioritised
-	rcall	adlc_write_cr2				; write to the ADLC
+	ldi	tmp2, CR2val			; Status bit prioritised
+	rcall	adlc_write_cr2			; write to the ADLC
 
 	ldi	tmp2, CR1_RIE | CR1_TXRESET	; Enable Receive interrupts | Reset the TX status
-	rcall	adlc_write_cr1				; write to the ADLC
+	rcall	adlc_write_cr1			; write to the ADLC
 
 	ldi	r24, EGPIO_ECONET_GREEN | EGPIO_SET
 	rjmp	egpio_write
