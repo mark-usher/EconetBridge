@@ -27,6 +27,16 @@
 
 #define NIC_CHOICE CS8900
 
+struct frag_mbuf
+{
+	struct mbuf *next, *prev;
+	uint8_t length;
+	uint8_t pad;
+	uint8_t data[UIP_IPH_LEN + UIP_LLH_LEN + 8];
+};
+
+struct mbuf *uip_to_mbufs(void);
+
 #if NIC_CHOICE == RTL8019
 #include "rtl8019.h"
 #define NICInit rtl8019Init
@@ -51,11 +61,11 @@
 
 #if NIC_CHOICE == CS8900
 #include "cs8900.h"
-#define NICInit cs8900Init
-#define NICBeginPacketSend cs8900BeginPacketSend
-#define NICSendPacketData cs8900SendPacketData
-#define NICEndPacketSend cs8900EndPacketSend
-#define NICBeginPacketRetreive cs8900BeginPacketRetreive
+#define NICInit			cs8900_poll_init
+#define NICBeginPacketSend	cs8900_poll_send
+#define NICSendPacketData 	cs8900SendPacketData
+#define NICEndPacketSend	cs8900_poll_send_end
+#define NICBeginPacketRetreive	cs8900_poll_retrieve
 #define NICRetreivePacketData cs8900RetreivePacketData
 #define NICEndPacketRetreive() do { } while (0)
 #endif
@@ -95,6 +105,5 @@ unsigned short nic_poll(void);
 unsigned char nic_poll(void);
 #endif /* UIP_BUFSIZE > 255 */
 
-struct mbuf *uip_to_mbufs(void);
 
-#endif /* __RTL8019DEV_H__ */
+#endif /* __NIC_H__ */
