@@ -6,6 +6,8 @@
 #ifndef __GLOBALS_H__
 #define __GLOBALS_H__
 
+#ifndef __ASSEMBLER__
+
 #define MACHINE_VER_LOW         0x01
 #define MACHINE_VER_HIGH        0x00
 
@@ -37,7 +39,9 @@ typedef struct {
 
 extern sDefaults_t eeprom; 
 
+extern uint8_t gPrevTxBidFail;
 
+#endif /* __ASSEMBLER__ */
 
 
 #endif /* __GLOBALS_H__ */
