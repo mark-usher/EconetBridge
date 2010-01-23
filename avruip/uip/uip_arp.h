@@ -45,7 +45,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip_arp.h,v 1.4 2009/08/25 12:24:00 philb Exp $
+ * $Id: uip_arp.h,v 1.5 2010/01/23 13:26:04 markusher Exp $
  *
  */
 
@@ -72,10 +72,7 @@ struct arp_entry {
   u8_t time;
 };
 
-static struct {
-  struct mbuf *mbuf;
-  uint16_t ip[2];
-} arp_lookaside;
+
 
 #define UIP_ETHTYPE_ARP 0x0806
 #define UIP_ETHTYPE_IP  0x0800

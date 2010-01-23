@@ -31,7 +31,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: main.c,v 1.29 2009/08/28 18:04:28 markusher Exp $
+ * $Id: main.c,v 1.30 2010/01/23 13:26:04 markusher Exp $
  *
  */
 
@@ -54,7 +54,9 @@
 #include "internet.h"
 #include "bridge.h"
 #include "mbuf.h"
-
+#include "eeprom.h"
+#include "telnetd.h"
+#include "aun.h"
 
 
 extern void adlc_irq(void);

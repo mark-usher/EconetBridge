@@ -54,7 +54,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip_arp.c,v 1.11 2009/08/25 12:24:00 philb Exp $
+ * $Id: uip_arp.c,v 1.12 2010/01/23 13:26:04 markusher Exp $
  *
  */
 
@@ -98,6 +98,12 @@ struct ethip_hdr {
 #define ARP_REPLY   2
 
 #define ARP_HWTYPE_ETH 1
+
+
+static struct {
+  struct mbuf *mbuf;
+  uint16_t ip[2];
+} arp_lookaside;
 
 static const u16_t broadcast_ipaddr[2] = {0xffff,0xffff};
 static uip_ipaddr_t blank_ipaddr;
@@ -195,7 +201,7 @@ uip_arp_timer(void)
 static void
 uip_arp_update(u16_t *ipaddr, struct uip_eth_addr *ethaddr)
 {
-  u8_t i;
+// unused  u8_t i;
   register struct arp_entry *tabptr;
   /* Walk through the ARP mapping table and try to find an entry to
      update. If none is found, the IP -> MAC address mapping is

@@ -5,25 +5,15 @@
 
 /**
  * \file
- *         An example of how to write uIP applications
- *         with protosockets.
+ *         Process Ethernet packets received
  * \author
  *         Mark Usher
  */
 
-/*
- * This is a short example of how to write uIP applications using
- * protosockets.
- */
 
-/*
- * We define the application state (struct hello_world_state) in the
- * hello-world.h file, so we need to include it here. We also include
- * uip.h (since this cannot be included in hello-world.h) and
- * <string.h>, since we use the memcpy() function in the code.
- */
 #include "aun.h"
 #include "uip.h"
+#include "uip_arp.h"
 #include "serial.h"
 #include "adlc.h"
 #include "econet.h"
@@ -45,36 +35,9 @@ static struct aun_state s;
 #define STATE_CONFIG_RECEIVED 3
 
 
-
-struct EconetRouting
-{
-u_char	pad[UIP_LLH_LEN];
-u_char	Network;
-u_char	Station;
-};
-
-
-struct Econet_Header {
-	unsigned char DSTN;
-	unsigned char DNET;
-	unsigned char SSTN;
-	unsigned char SNET;
-	unsigned char CB;
-	unsigned char PORT;
-	unsigned char DATA1;
-	unsigned char DATA2;
-	unsigned char DATA3;
-	unsigned char DATA4;
-	unsigned char DATA5;
-	unsigned char DATA6;
-	unsigned char DATA7;
-	unsigned char DATA8;
-};
-
-
-uint8_t rTableEco[256];
-uint32_t rTableEthIP[256];
-uint8_t rTableEthType[256];
+uint8_t	 rTableEco[256];		// array to flag the routable Econet Networks
+uint32_t	 rTableEthIP[256];	// array to hold the Ethernet IP a.b.c.x for routable networks
+uint8_t	 rTableEthType[256];	//
 
 static void newdata(void);
 static void newwandata(void);
@@ -82,7 +45,25 @@ static void newwandata(void);
 static char forwarding;
 static uint16_t fwd_timeout;
 
-static void do_uip_send(void)
+/*******************************************************************
+*
+* NAME 	: 	do_uip_send          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	Nothing
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+
+static void 
+do_uip_send(void)
 {
   uip_process(UIP_UDP_SEND_CONN);
   uip_arp_out();
@@ -90,18 +71,49 @@ static void do_uip_send(void)
   uip_len = 0;
 }
 
-static void not_listening(void)
+/*******************************************************************
+*
+* NAME 	: 	not_listening          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	Nothing
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+
+static void 
+not_listening(void)
 {
   adlc_forwarding_complete (NOT_LISTENING, NULL, 0);
   forwarding = 0;
 }
 
-/*---------------------------------------------------------------------------*/
-/*
- * The initialization function. We must explicitly call this function
- * from the system initialization code, some time after uip_init() is
- * called.
- */
+/*******************************************************************
+*
+* NAME 	: 	aun_init           
+*
+* DESCRIPTION :	The initialization function. We must explicitly call 
+* 				this function from the system initialization code, 
+*				some time after uip_init() is called
+*
+* INPUTS 	: 	Nothing
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES :   
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+
 void
 aun_init(void)
 {
@@ -126,7 +138,25 @@ aun_init(void)
 	s.wanconn->lport = HTONS(WANDATAPORT);
 }
 
-void aun_poller(void)
+/*******************************************************************
+*
+* NAME 	: 	aun_poller           
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	Nothing
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES :   
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+
+void 
+aun_poller(void)
 {
   if (forwarding) {
     if (--fwd_timeout == 0) {
@@ -136,14 +166,27 @@ void aun_poller(void)
   }
 }
 
-/*---------------------------------------------------------------------------*/
-/*
- * In AUN.h we have defined the UIP_APPCALL macro to
- * AUN_appcall so that this funcion is uIP's application
- * function. This function is called whenever an uIP event occurs
- * (e.g. when a new connection is established, new data arrives, sent
- * data is acknowledged, data needs to be retransmitted, etc.).
- */
+/*******************************************************************
+*
+* NAME 	: 	aun_appcall          
+*
+* DESCRIPTION :	In AUN.h we have defined the UIP_APPCALL macro to
+* 			AUN_appcall so that this funcion is uIP's application
+* 			function. This function is called whenever an uIP event occurs
+* 			(e.g. when a new connection is established, new data arrives, sent
+* 			data is acknowledged, data needs to be retransmitted, etc.).
+*
+* INPUTS 	: 	Nothing
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES :   
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+
 void
 aun_appcall(void)
 {
@@ -181,13 +224,24 @@ aun_appcall(void)
   }
 #endif
 }
-/*---------------------------------------------------------------------------*/
 
-/*---------------------------------------------------------------------------*/
-/** \internal
- * Called when new UDP data arrives.
- */
-/*---------------------------------------------------------------------------*/
+/*******************************************************************
+*
+* NAME 	: 	process_msg          
+*
+* DESCRIPTION :	Called when new UDP data arrives.
+*
+* INPUTS 	: 	Nothing
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	Internal 
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+
 static void
 process_msg(struct wan_packet *w, uint16_t pktlen)
 {
@@ -200,7 +254,7 @@ process_msg(struct wan_packet *w, uint16_t pktlen)
 	switch (m->mns_opcode)
 	{
 	case BROADCAST_DATA_FRAME: 	//1
-	case DATA_FRAME:		//2
+	case DATA_FRAME:			//2
 	case IMMEDIATE_OP:		//5
 		foward_packet(w, pktlen, m->mns_opcode);
 		//
@@ -228,7 +282,25 @@ process_msg(struct wan_packet *w, uint16_t pktlen)
 
 }
 
-static void newdata(void)
+/*******************************************************************
+*
+* NAME 	: 	newdata          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	Nothing
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+
+static void 
+newdata(void)
 {
 	struct wan_packet *w = (struct wan_packet *)uip_appdata;
 	w--;
@@ -249,7 +321,25 @@ static void newdata(void)
 	process_msg (w, uip_len - AUNHDRSIZE);
 }
 
-static void newwandata(void)
+/*******************************************************************
+*
+* NAME 	: 	newwandata          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	Nothing
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+
+static void 
+newwandata(void)
 {
 	struct wan_packet *w = (struct wan_packet *)uip_appdata;
 
@@ -260,34 +350,54 @@ static void newwandata(void)
 	}
 }
 
-/******************************************************************************/
+/*******************************************************************
+*
+* NAME 	: 	do_atp          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	Network, Station
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
 
-/******************************************************************************/
-
-/******************************************************************************/
-
-/******************************************************************************/
-
-void do_atp(unsigned char *Net, unsigned char *Stn)
+void 
+do_atp(unsigned char *Net, unsigned char *Stn)
 
 {
-
 	struct atp_block *atp;
-
 
 	atp = ((struct atp_block *)&uip_buf[UIP_LLH_LEN]);
 
 	atp->atpb_net = *Net;
 	atp->atpb_station = *Stn;
-
-
 }
 
-/******************************************************************************/
+/*******************************************************************
+*
+* NAME 	: 	foward_packet          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	WAN packet, Length, Type
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
 
-/******************************************************************************/
-
-void foward_packet(struct wan_packet *w, unsigned short pkt_len, uint8_t type)
+void 
+foward_packet(struct wan_packet *w, unsigned short pkt_len, uint8_t type)
 {
 	struct mns_msg *ah;
 	struct Econet_Header *eh;
@@ -319,26 +429,66 @@ void foward_packet(struct wan_packet *w, unsigned short pkt_len, uint8_t type)
 	  enqueue_aun_tx(mb, BUF, handle);
 }
 
-/*
-aun_send_immediate() works in the same way as aun_send_packet() but, obviously, 
-for immediate ops. You need to call back to adlc_immediate_complete(), again 
-with either TX_OK or NOT_LISTENING.  If the result was TX_OK, and there was data 
-returned (i.e. from machine peek) then you need to supply a buffer and length as well. 
+/*******************************************************************
+*
+* NAME 	: 	aun_send_immediate          
+*
+* DESCRIPTION :	aun_send_immediate() works in the same way as 
+*			aun_send_packet() but for immediate ops. 
+*			You need to call back to adlc_immediate_complete(), 
+*			again with either TX_OK or NOT_LISTENING.  If the 
+*			result was TX_OK, and there was data returned 
+*			(i.e. from machine peek) then you need to supply a 
+*			buffer and length as well. 
+*
+* INPUTS 	: 	Scout packet, destination IP address, data length
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
 */
-void aun_send_immediate (struct scout_packet *s, uint32_t dest_ip, uint16_t data_length)
+
+void 
+aun_send_immediate (struct scout_packet *s, uint32_t dest_ip, uint16_t data_length)
 {
   not_listening();
 }
 
+/*******************************************************************
+*
+* NAME 	: 	aun_send_packet          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	control byte, port, Source Station & Network
+*			Destination IP, datalength
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
 
-void aun_send_packet (uint8_t cb, uint8_t port, uint16_t src_stn_net, uip_ipaddr_t dest_ip, uint16_t data_length)
+void 
+aun_send_packet (uint8_t cb, 
+			uint8_t port, 
+			uint16_t src_stn_net, 
+			uip_ipaddr_t dest_ip, 
+			uint16_t data_length)
 {
   struct mns_msg *ah;
   ah = (struct mns_msg *)(uip_appdata);
 
   ah->mns_opcode = DATA_FRAME;
   ah->mns_port = port;
-  ah->mns_control = cb & 0x7f;
+  ah->mns_control = cb & RXCB;
   ah->mns_status = 0;
   ah->mns_handle = ++s.handle;
 
@@ -359,18 +509,48 @@ void aun_send_packet (uint8_t cb, uint8_t port, uint16_t src_stn_net, uip_ipaddr
   fwd_timeout = 20000;
 }
 
-
-/* 
-   aun_send_broadcast() is for broadcast operations.
-   There's no acknowledgement for these, you just need to send them off.
+/*******************************************************************
+*
+* NAME 	: 	aun_send_broadcast          
+*
+* DESCRIPTION :	For broadcast operations. There's no acknowledgement 
+*			for these, you just need to send them off.
+*
+* INPUTS 	: 	Scout Packet, data length
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
 */
 
-void aun_send_broadcast (struct scout_packet *s, uint16_t data_length)
+void 
+aun_send_broadcast (struct scout_packet *s, uint16_t data_length)
 {
 }
 
+/*******************************************************************
+*
+* NAME 	: 	aun_tx_complete          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	Status, pointer to a Transmit Record
+*
+* OUTPUTS 	: 	Nothing
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
 
-void aun_tx_complete (int8_t status, struct tx_record *tx)
+void 
+aun_tx_complete (int8_t status, struct tx_record *tx)
 {
   uint8_t length = 8;
   struct mns_msg *ah;
@@ -388,10 +568,27 @@ void aun_tx_complete (int8_t status, struct tx_record *tx)
   do_uip_send();
 }
 
-uint8_t aun_want_proxy_arp(uint16_t *ipaddr)
+/*******************************************************************
+*
+* NAME 	: 	aun_want_proxy_arp          
+*
+* DESCRIPTION :	
+*
+* INPUTS 	: 	pointer to an IP address
+*
+* OUTPUTS 	: 	1, 0
+*
+* NOTES 	:  	
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL
+*
+*/
+uint8_t 
+aun_want_proxy_arp(uint16_t *ipaddr)
 {
   if (ipaddr[0] == uip_hostaddr[0]
-      && rTableEco[ipaddr[1] & 0xff])
+      && rTableEco[ipaddr[1] & ROUTABLE])
     return 1;
   return 0;
 }

@@ -1,19 +1,25 @@
+ /*
+ *
+ * This file is part of the Econet<>Ethernet firmware.
+ *
+ * $Id: internet.c,v 1.20 2010/01/23 13:26:04 markusher Exp $
+ *
+ */
+
+/*---- Includes ----------------------------------------------------*/
 #include "internet.h"
+#include "nic.h"
+#include "serial.h"
 #include "adlc.h"
 #include "globals.h"
 #include "uip_arp.h"
 #include <string.h>
 
-#define EcCb_ARP		0xa1
-#define EcCb_ARPreply		0xa2
-#define EcCb_Frame		0x81
 
-#define MY_SERVER_TYPE "INTERNET"
-#define MY_SERVER_NAME "TCP/IP Gateway"
-#define WILDCARD_SERVER_TYPE "        "
-
+/*---- Variables ---------------------------------------------------*/
 static uip_ipaddr_t econet_subnet, econet_netmask;
 
+/*---- Structures --------------------------------------------------*/
 struct ethip_hdr {
   struct uip_eth_hdr ethhdr;
   /* IP header. */
@@ -34,13 +40,52 @@ struct ec_arp {
     dstipaddr[2];
 };
 
-void internet_init(void)
+#define IPBUF ((struct ethip_hdr *)&uip_buf[0])
+
+
+/*******************************************************************
+*
+* NAME 	:	internet_init          
+*
+* DESCRIPTION :
+*
+* INPUTS 	:	Nothing
+*
+* OUTPUTS 	:	Nothing
+*
+* NOTES 	:   
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL/
+*
+*/
+
+void 
+internet_init(void)
 {
   uip_ipaddr(econet_subnet, eeprom.EconetIP[0], eeprom.EconetIP[1], eeprom.EconetIP[2], eeprom.EconetIP[3]);
   uip_ipaddr(econet_netmask, eeprom.EconetMask[0], eeprom.EconetMask[1], eeprom.EconetMask[2], eeprom.EconetMask[3]);
 }
 
-void do_send_mbuf(struct mbuf *mb)
+/*******************************************************************
+*
+* NAME 	:	do_send_mbuf          
+*
+* DESCRIPTION :
+*
+* INPUTS 	:	Pointer to a memory buffer
+*
+* OUTPUTS 	:	Nothing
+*
+* NOTES 	:   
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL/
+*
+*/
+
+void 
+do_send_mbuf(struct mbuf *mb)
 {
   mb->data[2] = eeprom.Station;
   mb->data[3] = 0;
@@ -48,7 +93,25 @@ void do_send_mbuf(struct mbuf *mb)
   enqueue_tx (mb);
 }
 
-void handle_ip_packet(uint8_t cb, uint16_t length, uint8_t offset)
+/*******************************************************************
+*
+* NAME	:	handle_ip_packet            
+*
+* DESCRIPTION :
+*
+* INPUTS 	:	control byte, length, offset 
+*
+* OUTPUTS 	:
+*
+* NOTES 	:   
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL/
+*
+*/
+
+void 
+handle_ip_packet(uint8_t cb, uint16_t length, uint8_t offset)
 {
   struct arp_entry *tabptr;
   struct ec_arp *arpbuf = (struct ec_arp *)ECONET_RX_BUF + offset;
@@ -89,9 +152,25 @@ void handle_ip_packet(uint8_t cb, uint16_t length, uint8_t offset)
   }
 }
 
-#define IPBUF ((struct ethip_hdr *)&uip_buf[0])
+/*******************************************************************
+*
+* NAME :            
+*
+* DESCRIPTION :
+*
+* INPUTS :
+*
+* OUTPUTS :
+*
+* NOTES :   
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL/
+*
+*/
 
-uint8_t forward_to_econet (void)
+uint8_t 
+forward_to_econet (void)
 {
   /* Check if the destination address is on the local network. */
   if (eeprom.EconetMask[0] && uip_ipaddr_maskcmp(IPBUF->destipaddr, econet_subnet, econet_netmask)) {
@@ -118,14 +197,34 @@ uint8_t forward_to_econet (void)
   return 0;
 }
 
-void handle_port_b0(void)
+/*******************************************************************
+*
+* NAME 	:	handle_port_b0            
+*
+* DESCRIPTION :	handle an incoming broadcast for Find Server Port
+*			This will return the defined IP_PORT to the requestor
+*
+* INPUTS 	:	Nothing
+*
+* OUTPUTS 	:	Nothing
+*
+* NOTES :   
+*
+* CHANGES :
+* REF NO    DATE    WHO     DETAIL/
+*
+*/
+
+void 
+handle_port_b0(void)
 {
   unsigned char *bcast_buf = ECONET_RX_BUF + 6;
 
   if (memcmp (bcast_buf, MY_SERVER_TYPE, 8) == 0
       || memcmp (bcast_buf, WILDCARD_SERVER_TYPE, 8) == 0)
     {
-      struct mbuf *mb = mbuf_alloc();
+      struct mbuf *mb = mbuf_alloc();	// get a mbuf
+
       unsigned char *response_buffer = &mb->data[0];
       response_buffer[0] = ECONET_RX_BUF[2];
       response_buffer[1] = ECONET_RX_BUF[3];
@@ -136,11 +235,11 @@ void handle_port_b0(void)
       response_buffer[6] = 0;
       response_buffer[7] = IP_PORT;
       response_buffer[8] = 1;
-      strcpy ((char *)response_buffer + 9, MY_SERVER_TYPE);
-      response_buffer[17] = strlen(MY_SERVER_NAME);
-      strcpy ((char *)response_buffer + 18, MY_SERVER_NAME);
+      strcpy ((char *)response_buffer + 9, MY_SERVER_TYPE);	// Server Type
+      response_buffer[17] = strlen(MY_SERVER_NAME);		// lenght of Server Name
+      strcpy ((char *)response_buffer + 18, MY_SERVER_NAME);// Server Name
 
-      mb->length = 18 + strlen(MY_SERVER_NAME);
-      enqueue_tx (mb);
+      mb->length = 18 + strlen(MY_SERVER_NAME);			// set mbuf data length
+      enqueue_tx (mb);				// add to the Tx queue
     }
 }
