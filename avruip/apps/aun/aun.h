@@ -498,7 +498,7 @@ void aun_poller(void);
 void aun_appcall(void);
 void do_atp(unsigned char *Net, unsigned char *Stn);
 extern void foward_packet(struct wan_packet *w, unsigned short pkt_len, uint8_t type);
-extern void aun_send_immediate (struct scout_packet *s, uint32_t dest_ip, uint16_t data_length);
+extern void aun_send_immediate (struct scout_packet *s, uint32_t * dest_ip, uint16_t data_length);
 extern void aun_send_packet (uint8_t cb, uint8_t port, uint16_t src_stn_net, uip_ipaddr_t dest_ip, uint16_t data_length);
 extern void aun_send_broadcast (struct scout_packet *s, uint16_t data_length);
 extern void aun_tx_complete (int8_t status, struct tx_record *tx);

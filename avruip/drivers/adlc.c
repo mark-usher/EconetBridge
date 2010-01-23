@@ -179,7 +179,7 @@ static uint8_t do_tx_packet (struct tx_record *tx)
       memcpy (scout_mbuf.data + 4, mb->data + 14, mb->length - 14);
       scout_mbuf.length = mb->length - 10;
       scout_mbuf.next = mb->next;
-      mb = &scout_mbuf;
+      mb = (struct mbuf *)&scout_mbuf;
     }
 
   if (type == NORMAL_PACKET || do_4way)
@@ -520,11 +520,11 @@ void adlc_poller (void)
 //		  aun_send_broadcast (s, frame_length - 6);	// does nothing. Empty procedure
 		}
 	    }
-	  else if (should_bridge (s, &ip_target[0]))	// check if the packet should be forwarded
+	  else if (should_bridge (s, (uint32_t *) &ip_target[0]))	// check if the packet should be forwarded
 	    {
 	      if (s->Port == IMMEDIATE_PORT)		// If Port 00 for an immediate OP
 		{
-		  aun_send_immediate (s, ECONET_RX_BUF + 6, frame_length - 6);	// forward data to AUN
+		  aun_send_immediate (s, (uint32_t *) (ECONET_RX_BUF + 6), frame_length - 6);	// forward data to AUN
 		  return;
 		}
 		// otherwise it wasn't the IMMEDIATE_PORT

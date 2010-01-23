@@ -47,15 +47,15 @@ static uint16_t fwd_timeout;
 
 /*******************************************************************
 *
-* NAME 	: 	do_uip_send          
+* NAME 	      :	do_uip_send          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	Nothing
+* INPUTS      :	Nothing
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -73,15 +73,15 @@ do_uip_send(void)
 
 /*******************************************************************
 *
-* NAME 	: 	not_listening          
+* NAME 	      :	not_listening          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	Nothing
+* INPUTS      :	Nothing
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -97,17 +97,17 @@ not_listening(void)
 
 /*******************************************************************
 *
-* NAME 	: 	aun_init           
+* NAME 	      :	aun_init           
 *
 * DESCRIPTION :	The initialization function. We must explicitly call 
-* 				this function from the system initialization code, 
-*				some time after uip_init() is called
+* 		this function from the system initialization code, 
+*		some time after uip_init() is called
 *
-* INPUTS 	: 	Nothing
+* INPUTS      : Nothing
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES :   
+* NOTES	      :   
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -140,15 +140,15 @@ aun_init(void)
 
 /*******************************************************************
 *
-* NAME 	: 	aun_poller           
+* NAME 	      :	aun_poller           
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	Nothing
+* INPUTS      :	Nothing
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES :   
+* NOTES       :	   
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -168,19 +168,19 @@ aun_poller(void)
 
 /*******************************************************************
 *
-* NAME 	: 	aun_appcall          
+* NAME 	      :	aun_appcall          
 *
 * DESCRIPTION :	In AUN.h we have defined the UIP_APPCALL macro to
-* 			AUN_appcall so that this funcion is uIP's application
-* 			function. This function is called whenever an uIP event occurs
-* 			(e.g. when a new connection is established, new data arrives, sent
-* 			data is acknowledged, data needs to be retransmitted, etc.).
+* 		AUN_appcall so that this funcion is uIP's application
+* 		function. This function is called whenever an uIP event occurs
+* 		(e.g. when a new connection is established, new data arrives, sent
+* 		data is acknowledged, data needs to be retransmitted, etc.).
 *
-* INPUTS 	: 	Nothing
+* INPUTS      :	Nothing
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES :   
+* NOTES       :	   
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -227,15 +227,15 @@ aun_appcall(void)
 
 /*******************************************************************
 *
-* NAME 	: 	process_msg          
+* NAME 	      :	process_msg          
 *
 * DESCRIPTION :	Called when new UDP data arrives.
 *
-* INPUTS 	: 	Nothing
+* INPUTS      :	Nothing
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	Internal 
+* NOTES       :	Internal 
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -284,15 +284,15 @@ process_msg(struct wan_packet *w, uint16_t pktlen)
 
 /*******************************************************************
 *
-* NAME 	: 	newdata          
+* NAME 	      :	newdata          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	Nothing
+* INPUTS      :	Nothing
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -323,15 +323,15 @@ newdata(void)
 
 /*******************************************************************
 *
-* NAME 	: 	newwandata          
+* NAME 	      :	newwandata          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	Nothing
+* INPUTS      :	Nothing
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -352,15 +352,15 @@ newwandata(void)
 
 /*******************************************************************
 *
-* NAME 	: 	do_atp          
+* NAME 	      :	do_atp          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	Network, Station
+* INPUTS      :	Network, Station
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -381,15 +381,15 @@ do_atp(unsigned char *Net, unsigned char *Stn)
 
 /*******************************************************************
 *
-* NAME 	: 	foward_packet          
+* NAME 	      :	foward_packet          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	WAN packet, Length, Type
+* INPUTS      :	WAN packet, Length, Type
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -422,7 +422,7 @@ foward_packet(struct wan_packet *w, unsigned short pkt_len, uint8_t type)
 	eh->CB = cb;
 	eh->PORT = port;
 
-	struct mbuf *mb = copy_to_mbufs (eh, pkt_len + 6);
+	struct mbuf *mb = copy_to_mbufs ((uint8_t *)eh, pkt_len + 6);
 	if (type == BROADCAST_DATA_FRAME)
 	  enqueue_tx (mb);
 	else
@@ -431,21 +431,21 @@ foward_packet(struct wan_packet *w, unsigned short pkt_len, uint8_t type)
 
 /*******************************************************************
 *
-* NAME 	: 	aun_send_immediate          
+* NAME 	      :	aun_send_immediate          
 *
 * DESCRIPTION :	aun_send_immediate() works in the same way as 
-*			aun_send_packet() but for immediate ops. 
-*			You need to call back to adlc_immediate_complete(), 
-*			again with either TX_OK or NOT_LISTENING.  If the 
-*			result was TX_OK, and there was data returned 
-*			(i.e. from machine peek) then you need to supply a 
-*			buffer and length as well. 
+*		aun_send_packet() but for immediate ops. 
+*		You need to call back to adlc_immediate_complete(), 
+*		again with either TX_OK or NOT_LISTENING.  If the 
+*		result was TX_OK, and there was data returned 
+*		(i.e. from machine peek) then you need to supply a 
+*		buffer and length as well. 
 *
-* INPUTS 	: 	Scout packet, destination IP address, data length
+* INPUTS      :	Scout packet, destination IP address, data length
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -453,23 +453,23 @@ foward_packet(struct wan_packet *w, unsigned short pkt_len, uint8_t type)
 */
 
 void 
-aun_send_immediate (struct scout_packet *s, uint32_t dest_ip, uint16_t data_length)
+aun_send_immediate (struct scout_packet *s, uint32_t * dest_ip, uint16_t data_length)
 {
   not_listening();
 }
 
 /*******************************************************************
 *
-* NAME 	: 	aun_send_packet          
+* NAME 	      :	aun_send_packet          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	control byte, port, Source Station & Network
-*			Destination IP, datalength
+* INPUTS      :	control byte, port, Source Station & Network
+*		Destination IP, datalength
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -511,16 +511,16 @@ aun_send_packet (uint8_t cb,
 
 /*******************************************************************
 *
-* NAME 	: 	aun_send_broadcast          
+* NAME 	      :	aun_send_broadcast          
 *
 * DESCRIPTION :	For broadcast operations. There's no acknowledgement 
-*			for these, you just need to send them off.
+*		for these, you just need to send them off.
 *
-* INPUTS 	: 	Scout Packet, data length
+* INPUTS      :	Scout Packet, data length
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -534,15 +534,15 @@ aun_send_broadcast (struct scout_packet *s, uint16_t data_length)
 
 /*******************************************************************
 *
-* NAME 	: 	aun_tx_complete          
+* NAME 	      :	aun_tx_complete          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	Status, pointer to a Transmit Record
+* INPUTS      :	Status, pointer to a Transmit Record
 *
-* OUTPUTS 	: 	Nothing
+* OUTPUTS     : Nothing
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -570,15 +570,15 @@ aun_tx_complete (int8_t status, struct tx_record *tx)
 
 /*******************************************************************
 *
-* NAME 	: 	aun_want_proxy_arp          
+* NAME 	      :	aun_want_proxy_arp          
 *
 * DESCRIPTION :	
 *
-* INPUTS 	: 	pointer to an IP address
+* INPUTS      :	pointer to an IP address
 *
-* OUTPUTS 	: 	1, 0
+* OUTPUTS     : 1, 0
 *
-* NOTES 	:  	
+* NOTES       :  	
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
