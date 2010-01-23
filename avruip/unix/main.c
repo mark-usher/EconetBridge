@@ -59,9 +59,9 @@
 #include "aun.h"
 
 
-extern void adlc_irq(void);
-extern void adlc_access(void);
-extern void adlc_init(void);
+extern void adlc_irq (void);
+extern void adlc_access (void);
+extern void adlc_init (void);
 
 
 #define BUF ((struct uip_eth_hdr *)&uip_buf[0])
@@ -71,55 +71,58 @@ extern void adlc_init(void);
 #endif /* NULL */
 
 
-void AVR_init(void)
+void
+AVR_init (void)
 {
-	// select 8MHz clock
-	CLKPR = 0x80;
-	CLKPR = 0x0;
+  // select 8MHz clock
+  CLKPR = 0x80;
+  CLKPR = 0x0;
 
-	// set up I/O
-	DDRB = 0xFF;
-	DDRE = (1 << ADLC_D0 | 1 << ADLC_nCE);
-	DDRD = 0xF3;
-	PORTD = 0xFF;
-	PORTE = (1 << ADLC_nCE);
+  // set up I/O
+  DDRB = 0xFF;
+  DDRE = (1 << ADLC_D0 | 1 << ADLC_nCE);
+  DDRD = 0xF3;
+  PORTD = 0xFF;
+  PORTE = (1 << ADLC_nCE);
 
-	// set up timer 0 to generate ADLC clock waveform
-	OCR0 = 4;
-	TCCR0 = (1 << WGM01) | (1 << COM00) | (1 << CS00);
+  // set up timer 0 to generate ADLC clock waveform
+  OCR0 = 4;
+  TCCR0 = (1 << WGM01) | (1 << COM00) | (1 << CS00);
 
-	// set up timer 1 to generate Econet clock output
-	/* to do - add the clock multiplier parameter in CMOS to configure speed */
-	TCCR1A = (1 << WGM11) | (1 << COM1A1);
-	TCCR1B = (1 << WGM13) | (1 << WGM12) | (1 << CS10); // no prescaling
+  // set up timer 1 to generate Econet clock output
+  /* to do - add the clock multiplier parameter in CMOS to configure speed */
+  TCCR1A = (1 << WGM11) | (1 << COM1A1);
+  TCCR1B = (1 << WGM13) | (1 << WGM12) | (1 << CS10);	// no prescaling
 
-	// select 1 wait state for upper region at 0x8000-0xffff
-	EMCUCR = (1 << SRL2);
+  // select 1 wait state for upper region at 0x8000-0xffff
+  EMCUCR = (1 << SRL2);
 
-	// set the MicroController Control Register
-	MCUCR =  (1 << SRE) | (1 << ISC11) | (1 << SRW10);
+  // set the MicroController Control Register
+  MCUCR = (1 << SRE) | (1 << ISC11) | (1 << SRW10);
 
 }
 
-static void maybe_send(void) __attribute__((noinline));
-static void maybe_send(void)
+static void maybe_send (void) __attribute__ ((noinline));
+static void
+maybe_send (void)
 {
   /* If the above function invocation resulted in data that
      should be sent out on the network, the global variable
      uip_len is set to a value > 0. */
-  if(uip_len > 0) {
-    uip_arp_out();
-    nic_send(NULL);
-  }
+  if (uip_len > 0)
+    {
+      uip_arp_out ();
+      nic_send (NULL);
+    }
 }
 
 //int main(void) __attribute__ ((noreturn));
 
 /*---------------------------------------------------------------------------*/
 int
-main(void)
+main (void)
 {
-  EEPROM_main();
+  EEPROM_main ();
 
   int i;
   uip_ipaddr_t ipaddr;
@@ -127,92 +130,105 @@ main(void)
 
   memcpy (&uip_ethaddr.addr[0], &eeprom.MAC[0], 6);
 
-  AVR_init();
-  egpio_init();
+  AVR_init ();
+  egpio_init ();
 
-  clock_init();
-  mbuf_init();
-  adlc_init();
+  clock_init ();
+  mbuf_init ();
+  adlc_init ();
   GICR = (1 << INT0);
 
-  timer_set(&periodic_timer, CLOCK_SECOND / 2);
-  timer_set(&arp_timer, CLOCK_SECOND * 10);
+  timer_set (&periodic_timer, CLOCK_SECOND / 2);
+  timer_set (&arp_timer, CLOCK_SECOND * 10);
 
-  nic_init();
+  nic_init ();
 
 
-  uip_ipaddr(ipaddr, eeprom.IPAddr[0],eeprom.IPAddr[1],eeprom.IPAddr[2],eeprom.IPAddr[3]);
-  uip_sethostaddr(ipaddr);
-  uip_ipaddr(ipaddr, eeprom.Gateway[0],eeprom.Gateway[1],eeprom.Gateway[2],eeprom.Gateway[3]);
-  uip_setdraddr(ipaddr);
-  uip_ipaddr(ipaddr, eeprom.Subnet[0],eeprom.Subnet[1],eeprom.Subnet[2],eeprom.Subnet[3]);
-  uip_setnetmask(ipaddr);
+  uip_ipaddr (ipaddr, eeprom.IPAddr[0], eeprom.IPAddr[1], eeprom.IPAddr[2],
+	      eeprom.IPAddr[3]);
+  uip_sethostaddr (ipaddr);
+  uip_ipaddr (ipaddr, eeprom.Gateway[0], eeprom.Gateway[1], eeprom.Gateway[2],
+	      eeprom.Gateway[3]);
+  uip_setdraddr (ipaddr);
+  uip_ipaddr (ipaddr, eeprom.Subnet[0], eeprom.Subnet[1], eeprom.Subnet[2],
+	      eeprom.Subnet[3]);
+  uip_setnetmask (ipaddr);
 
-  telnetd_init();
-  aun_init();
-  internet_init();
+  telnetd_init ();
+  aun_init ();
+  internet_init ();
 
   egpio_write (EGPIO_STATUS_GREEN);
 
-  while(1) {
+  while (1)
+    {
 
 // check the econet for complete packets
-    adlc_poller();
-    aun_poller ();
+      adlc_poller ();
+      aun_poller ();
 
-    uip_len = nic_poll();
+      uip_len = nic_poll ();
 
-    if(uip_len > 0) {
+      if (uip_len > 0)
+	{
 
-      if(BUF->type == htons(UIP_ETHTYPE_IP)) {
-	uip_arp_ipin();
-	uip_input();
-	/* If the above function invocation resulted in data that
-	   should be sent out on the network, the global variable
-	   uip_len is set to a value > 0. */
-	maybe_send();
-      } else if(BUF->type == htons(UIP_ETHTYPE_ARP)) {
-	uip_arp_arpin();
-	/* If the above function invocation resulted in data that
-	   should be sent out on the network, the global variable
-	   uip_len is set to a value > 0. */
-	if(uip_len > 0) {
-	  nic_send(NULL);
+	  if (BUF->type == htons (UIP_ETHTYPE_IP))
+	    {
+	      uip_arp_ipin ();
+	      uip_input ();
+	      /* If the above function invocation resulted in data that
+	         should be sent out on the network, the global variable
+	         uip_len is set to a value > 0. */
+	      maybe_send ();
+	    }
+	  else if (BUF->type == htons (UIP_ETHTYPE_ARP))
+	    {
+	      uip_arp_arpin ();
+	      /* If the above function invocation resulted in data that
+	         should be sent out on the network, the global variable
+	         uip_len is set to a value > 0. */
+	      if (uip_len > 0)
+		{
+		  nic_send (NULL);
+		}
+	    }
+
 	}
-      }
-
-    } else if(timer_expired(&periodic_timer)) {
-      timer_reset(&periodic_timer);
-      for(i = 0; i < UIP_CONNS; i++) {
-	uip_periodic(i);
-	maybe_send();
-      }
+      else if (timer_expired (&periodic_timer))
+	{
+	  timer_reset (&periodic_timer);
+	  for (i = 0; i < UIP_CONNS; i++)
+	    {
+	      uip_periodic (i);
+	      maybe_send ();
+	    }
 
 #if UIP_UDP
-      for(i = 0; i < UIP_UDP_CONNS; i++) {
-	uip_udp_periodic(i);
-	maybe_send();
-      }
+	  for (i = 0; i < UIP_UDP_CONNS; i++)
+	    {
+	      uip_udp_periodic (i);
+	      maybe_send ();
+	    }
 #endif /* UIP_UDP */
 
-      /* Call the ARP timer function every 10 seconds. */
-      if(timer_expired(&arp_timer)) {
-	timer_reset(&arp_timer);
-	uip_arp_timer();
-      }
+	  /* Call the ARP timer function every 10 seconds. */
+	  if (timer_expired (&arp_timer))
+	    {
+	      timer_reset (&arp_timer);
+	      uip_arp_timer ();
+	    }
+	}
     }
-  }
 }
 
 #ifdef __DHCPC_H__
 
 void
-dhcpc_configured(const struct dhcpc_state *s)
+dhcpc_configured (const struct dhcpc_state *s)
 {
-  uip_sethostaddr(s->ipaddr);
-  uip_setnetmask(s->netmask);
-  uip_setdraddr(s->default_router);
-  resolv_conf(s->dnsaddr);
+  uip_sethostaddr (s->ipaddr);
+  uip_setnetmask (s->netmask);
+  uip_setdraddr (s->default_router);
+  resolv_conf (s->dnsaddr);
 }
 #endif /* __DHCPC_H__ */
-

@@ -11,27 +11,28 @@ volatile clock_time_t timerCounter;
  * from the main() function of the system.
  *
  */
-void clock_init(void)
+void
+clock_init (void)
 {
 
-	// set the clock timer
-	timerCounter = 0;
+  // set the clock timer
+  timerCounter = 0;
 
-	// set up timer 3 to generate timer clock output
-//	TCCR3A = ((1 << WGM32));			// TCCR3A - Timer/Counter3 Control Register A
-	// this gives input frequency of 31250Hz from an 8 MHz clock
-	TCCR3B = (1 << CS32);						// prescaler/256
+  // set up timer 3 to generate timer clock output
+//      TCCR3A = ((1 << WGM32));                        // TCCR3A - Timer/Counter3 Control Register A
+  // this gives input frequency of 31250Hz from an 8 MHz clock
+  TCCR3B = (1 << CS32);		// prescaler/256
 
-	// timer3 overflow interrupt enable
-	ETIMSK = (1 << OCIE3A );
+  // timer3 overflow interrupt enable
+  ETIMSK = (1 << OCIE3A);
 
-	// set counter OCR3A to 31248 0x7A10
-	OCR3AH = 0x7A;
-	OCR3AL = 0x10;
+  // set counter OCR3A to 31248 0x7A10
+  OCR3AH = 0x7A;
+  OCR3AL = 0x10;
 
-	sei();
+  sei ();
 
-	return;
+  return;
 }
 
 #ifdef __IMAGECRAFT__
@@ -39,16 +40,16 @@ void clock_init(void)
 #endif
 
 
-ISR(TIMER3_COMPA_vect)
+ISR (TIMER3_COMPA_vect)
 {
-	timerCounter++;
+  timerCounter++;
 
-	// zero the counter
-	TCNT3H = 0;
-	TCNT3L = 0;
+  // zero the counter
+  TCNT3H = 0;
+  TCNT3L = 0;
 
-	// reset interrupt flag
-	ETIFR = 0;
+  // reset interrupt flag
+  ETIFR = 0;
 }
 
 
@@ -59,7 +60,8 @@ ISR(TIMER3_COMPA_vect)
  *
  * \return The current clock time, measured in system ticks.
  */
-clock_time_t clock_time(void)
+clock_time_t
+clock_time (void)
 {
-	return timerCounter;
+  return timerCounter;
 }

@@ -102,7 +102,8 @@ MEMB(connections, sizeof(struct connection), 16);
                                           MEMB_CONCAT(name,_memb_count), \
                                           (void *)MEMB_CONCAT(name,_memb_mem)}
 
-struct memb_blocks {
+struct memb_blocks
+{
   unsigned short size;
   unsigned short num;
   char *count;
@@ -114,14 +115,14 @@ struct memb_blocks {
  *
  * \param m A memory block previosly declared with MEMB().
  */
-void  memb_init(struct memb_blocks *m);
+void memb_init (struct memb_blocks *m);
 
 /**
  * Allocate a memory block from a block of memory declared with MEMB().
  *
  * \param m A memory block previosly declared with MEMB().
  */
-void *memb_alloc(struct memb_blocks *m);
+void *memb_alloc (struct memb_blocks *m);
 
 /**
  * Deallocate a memory block from a memory block previously declared
@@ -135,7 +136,7 @@ void *memb_alloc(struct memb_blocks *m);
  * if successfully deallocated) or -1 if the pointer "ptr" did not
  * point to a legal memory block.
  */
-char  memb_free(struct memb_blocks *m, void *ptr);
+char memb_free (struct memb_blocks *m, void *ptr);
 
 /** @} */
 

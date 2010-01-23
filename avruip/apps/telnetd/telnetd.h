@@ -37,7 +37,7 @@
 
 #include "uipopt.h"
 
-void telnetd_appcall(void);
+void telnetd_appcall (void);
 
 #ifndef TELNETD_CONF_LINELEN
 #define TELNETD_CONF_LINELEN 80
@@ -46,7 +46,8 @@ void telnetd_appcall(void);
 #define TELNETD_CONF_NUMLINES 16
 #endif
 
-struct telnetd_state {
+struct telnetd_state
+{
   char *lines[TELNETD_CONF_NUMLINES];
   char buf[TELNETD_CONF_LINELEN];
   char bufptr;
@@ -56,7 +57,7 @@ struct telnetd_state {
 
 typedef struct telnetd_state uip_tcp_appstate_t;
 
-extern void telnetd_init(void);
+extern void telnetd_init (void);
 
 #ifndef UIP_APPCALL
 //#define UIP_APPCALL     telnetd_appcall

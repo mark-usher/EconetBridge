@@ -3,7 +3,6 @@
 
 //#define  F_CPU  8000   /* The AVR clock frequency in Hertz */
 
-void delay_ms(unsigned char ms);
+void delay_ms (unsigned char ms);
 
 #endif
- 

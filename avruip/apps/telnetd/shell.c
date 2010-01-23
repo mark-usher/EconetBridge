@@ -1,36 +1,36 @@
  /*
- * Copyright (c) 2003, Adam Dunkels.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote
- *    products derived from this software without specific prior
- *    written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
- * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * This file is part of the uIP TCP/IP stack.
- *
- * $Id: shell.c,v 1.11 2010/01/23 13:26:04 markusher Exp $
- *
- */
+    * Copyright (c) 2003, Adam Dunkels.
+    * All rights reserved.
+    *
+    * Redistribution and use in source and binary forms, with or without
+    * modification, are permitted provided that the following conditions
+    * are met:
+    * 1. Redistributions of source code must retain the above copyright
+    *    notice, this list of conditions and the following disclaimer.
+    * 2. Redistributions in binary form must reproduce the above copyright
+    *    notice, this list of conditions and the following disclaimer in the
+    *    documentation and/or other materials provided with the distribution.
+    * 3. The name of the author may not be used to endorse or promote
+    *    products derived from this software without specific prior
+    *    written permission.
+    *
+    * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
+    * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+    * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+    * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+    * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+    * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+    * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+    * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+    * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+    * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+    *
+    * This file is part of the uIP TCP/IP stack.
+    *
+    * $Id: shell.c,v 1.11 2010/01/23 13:26:04 markusher Exp $
+    *
+  */
 
 #include "shell.h"
 
@@ -40,34 +40,38 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct ptentry {
+struct ptentry
+{
   char *commandstr;
-  void (* pfunc)(char *str);
+  void (*pfunc) (char *str);
 };
 
 #define SHELL_PROMPT "> "
 
 
 #define xtod(c) ((c>='0' && c<='9') ? c-'0' : ((c>='A' && c<='F') ? \
-                c-'A'+10 : ((c>='a' && c<='f') ? c-'a'+10 : 0))) 
-  
+                c-'A'+10 : ((c>='a' && c<='f') ? c-'a'+10 : 0)))
+
 
 /*---------------------------------------------------------------------------*/
 static void
-parse(register char *str, struct ptentry *t)
+parse (register char *str, struct ptentry *t)
 {
 
   struct ptentry *p;
 
-  for(p = t; p->commandstr != NULL; ++p) {
-    if(strncmp(p->commandstr, str, strlen(p->commandstr)) == 0) {
-      break;
+  for (p = t; p->commandstr != NULL; ++p)
+    {
+      if (strncmp (p->commandstr, str, strlen (p->commandstr)) == 0)
+	{
+	  break;
+	}
     }
-  }
 
-  p->pfunc(str);
+  p->pfunc (str);
 
 }
+
 /*---------------------------------------------------------------------------*/
 /*
 static void
@@ -102,24 +106,31 @@ copy_param_ip(uint8_t *location, char *strvalue)
 }
 */
 
-char xtode(char c) 
-{ 
-  if (c>='0' && c<='9') return c-'0'; 
-  if (c>='A' && c<='F') return c-'A'+10; 
-  if (c>='a' && c<='f') return c-'a'+10; 
-  return c=0;        // not Hex digit 
-} 
-  
-int HextoDec(char *hex, int l) 
-{ 
-  if (*hex==0) return(l); 
-  return HextoDec(hex+1, l*16+xtode(*hex)); // hex+1? 
-} 
-  
-int xstrtoi(char *hex)      // hex string to integer 
-{ 
-  return HextoDec(hex, 0); 
-} 
+char
+xtode (char c)
+{
+  if (c >= '0' && c <= '9')
+    return c - '0';
+  if (c >= 'A' && c <= 'F')
+    return c - 'A' + 10;
+  if (c >= 'a' && c <= 'f')
+    return c - 'a' + 10;
+  return c = 0;			// not Hex digit 
+}
+
+int
+HextoDec (char *hex, int l)
+{
+  if (*hex == 0)
+    return (l);
+  return HextoDec (hex + 1, l * 16 + xtode (*hex));	// hex+1? 
+}
+
+int
+xstrtoi (char *hex)		// hex string to integer 
+{
+  return HextoDec (hex, 0);
+}
 
 /*---------------------------------------------------------------------------*/
 /*
@@ -141,16 +152,18 @@ copy_param_mac(uint8_t *location, char *strvalue)
 */
 /*---------------------------------------------------------------------------*/
 static void
-inttostr(char *str, uint8_t i)
+inttostr (char *str, uint8_t i)
 {
   str[0] = '0' + i / 100;
-  if(str[0] == '0') {
-    str[0] = ' ';
-  }
+  if (str[0] == '0')
+    {
+      str[0] = ' ';
+    }
   str[1] = '0' + (i / 10) % 10;
-  if(str[0] == ' ' && str[1] == '0') {
-    str[1] = ' ';
-  }
+  if (str[0] == ' ' && str[1] == '0')
+    {
+      str[1] = ' ';
+    }
   str[2] = '0' + i % 10;
   str[3] = ' ';
   str[4] = 0;
@@ -159,14 +172,14 @@ inttostr(char *str, uint8_t i)
 #define hexdigit(x)	(((x) < 10) ? (x) + '0' : (x) + 'a' - 10)
 
 static void
-hextostr(char *str, uint8_t i)
+hextostr (char *str, uint8_t i)
 {
-  str[0] = hexdigit(i >> 4);
-  str[1] = hexdigit(i & 0xf);
+  str[0] = hexdigit (i >> 4);
+  str[1] = hexdigit (i & 0xf);
 }
 
 static void
-iptostr(uint8_t *ipaddress, char *str)   
+iptostr (uint8_t * ipaddress, char *str)
 {
   char outstring[4];
   char period[1];
@@ -175,30 +188,34 @@ iptostr(uint8_t *ipaddress, char *str)
 
   str[0] = 0;
 
-  itoa(ipaddress[0], outstring, 10);
-  strcat(str, outstring);
-  itoa(ipaddress[1], outstring, 10);
-  strcat(str, period);
-  itoa(ipaddress[2], outstring, 10);
-  strcat(str, period);
-  itoa(ipaddress[3], outstring, 10);
-  strcat(str, period);
+  itoa (ipaddress[0], outstring, 10);
+  strcat (str, outstring);
+  itoa (ipaddress[1], outstring, 10);
+  strcat (str, period);
+  itoa (ipaddress[2], outstring, 10);
+  strcat (str, period);
+  itoa (ipaddress[3], outstring, 10);
+  strcat (str, period);
 
 }
+
 /*---------------------------------------------------------------------------*/
 static void
-help(char *str)
+help (char *str)
 {
 //  shell_output("set clck [0-4]", "");
 //  shell_output("\nset sttn [1-254]\r\nset enet [1-127]\r\nset aunn [1-251]\r\nset ipad [a.b.c.d]", "");
 //  shell_output("\r\nset snet [a.b.c.d]\r\nset gway [a.b.c.d]\r\nset maca [a:b:c:d:e:f]\r\nset ecip [a.b.c.d]\r\nset ecsb [a.b.c.d]\r\nset ewan [a.b.c.d]\n", "");
 
 //  shell_output("stats   - show network statistics", "");
-  shell_output("config  - show configuration\r\nhelp, ? - show help\r\nexit    - exit shell", "");
+  shell_output
+    ("config  - show configuration\r\nhelp, ? - show help\r\nexit    - exit shell",
+     "");
 }
+
 /*---------------------------------------------------------------------------*/
 static void
-setvalue(char *str)
+setvalue (char *str)
 {
 /*
    if(strncmp(str+4, "sttn", 4)==0){
@@ -229,10 +246,11 @@ setvalue(char *str)
     }
 */
 }
+
 /*---------------------------------------------------------------------------*/
 
 static void
-stats(char *str)
+stats (char *str)
 {
 /*
   char outstring[4];
@@ -254,89 +272,95 @@ stats(char *str)
 */
 }/*---------------------------------------------------------------------------*/
 static void
-config(char *str)
+config (char *str)
 {
   char outstring[5];
   char addr[18];
 
   uint8_t i;
-  for (i = 0; i < 6; i++) {
-    hextostr(addr + (i * 3), eeprom.MAC[i]);
-    addr[((i*3)+2)] = ':';
-  }
+  for (i = 0; i < 6; i++)
+    {
+      hextostr (addr + (i * 3), eeprom.MAC[i]);
+      addr[((i * 3) + 2)] = ':';
+    }
   addr[17] = 0;
 
 
-  inttostr(outstring,eeprom.Econet_Network);
+  inttostr (outstring, eeprom.Econet_Network);
 
-  shell_output("\nEconet\r\n======\r\n\nNetwork\t\t: ", outstring);
+  shell_output ("\nEconet\r\n======\r\n\nNetwork\t\t: ", outstring);
 
-  inttostr(outstring,eeprom.Station);
-  shell_output("Station\t\t: ", outstring);
+  inttostr (outstring, eeprom.Station);
+  shell_output ("Station\t\t: ", outstring);
 /*
   inttostr(outstring,eeprom.ClockMultiplier);
   shell_output("Clock x\t\t: ", outstring);
 */
 
-  inttostr(outstring,eeprom.Ethernet_Network);
-  shell_output("AUN Network\t: ", outstring);
+  inttostr (outstring, eeprom.Ethernet_Network);
+  shell_output ("AUN Network\t: ", outstring);
 
-  shell_output("\nEthernet\r\n========\r\n\nMAC Address\t: ", addr);
+  shell_output ("\nEthernet\r\n========\r\n\nMAC Address\t: ", addr);
 
-  iptostr(eeprom.IPAddr, addr);
-  shell_output("IP Address\t: ", addr);
+  iptostr (eeprom.IPAddr, addr);
+  shell_output ("IP Address\t: ", addr);
 
-  iptostr(eeprom.Subnet, addr);
-  shell_output("Subnet\t\t: ", addr);
+  iptostr (eeprom.Subnet, addr);
+  shell_output ("Subnet\t\t: ", addr);
 
-  iptostr(eeprom.Gateway, addr);
-  shell_output("Gateway\t\t: ", addr);
+  iptostr (eeprom.Gateway, addr);
+  shell_output ("Gateway\t\t: ", addr);
 
-  iptostr(eeprom.EconetIP, addr);
-  shell_output("\nEconet WAN\r\n==========\r\n\nIP Address\t: ", addr);
+  iptostr (eeprom.EconetIP, addr);
+  shell_output ("\nEconet WAN\r\n==========\r\n\nIP Address\t: ", addr);
 
-  iptostr(eeprom.EconetMask, addr);
-  shell_output("Subnet\t\t: ", addr);
+  iptostr (eeprom.EconetMask, addr);
+  shell_output ("Subnet\t\t: ", addr);
 
-  iptostr(eeprom.WANRouter, addr);
-  shell_output("Gateway\t\t: ", addr);
+  iptostr (eeprom.WANRouter, addr);
+  shell_output ("Gateway\t\t: ", addr);
 
 }/*---------------------------------------------------------------------------*/
 static void
-unknown(char *str)
+unknown (char *str)
 {
-  if(strlen(str) > 0) {
-    shell_output("Unknown command: ", str);
-  }
+  if (strlen (str) > 0)
+    {
+      shell_output ("Unknown command: ", str);
+    }
 }
+
 /*---------------------------------------------------------------------------*/
-static struct ptentry parsetab[] =
-  {{"config", config},
-   {"stats", stats}, 
-   {"set", setvalue},
-   {"exit", shell_quit},
-   {"help", help},
-   {"?", help},
+static struct ptentry parsetab[] = { {"config", config},
+{"stats", stats},
+{"set", setvalue},
+{"exit", shell_quit},
+{"help", help},
+{"?", help},
 
    /* Default action */
-   {NULL, unknown}};
+{NULL, unknown}
+};
 /*---------------------------------------------------------------------------*/
 void
-shell_init(void)
+shell_init (void)
 {
 }
+
 /*---------------------------------------------------------------------------*/
 void
-shell_start(void)
+shell_start (void)
 {
-  shell_output("BEE Gateway\r\n'?' for help", "");
-  shell_prompt(SHELL_PROMPT);
+  shell_output ("BEE Gateway\r\n'?' for help", "");
+  shell_prompt (SHELL_PROMPT);
 }
+
 /*---------------------------------------------------------------------------*/
 void
-shell_input(char *cmd)
+shell_input (char *cmd)
 {
-  parse(cmd, parsetab);
-  shell_prompt(SHELL_PROMPT);
+  parse (cmd, parsetab);
+  shell_prompt (SHELL_PROMPT);
 }
+
 /*---------------------------------------------------------------------------*/

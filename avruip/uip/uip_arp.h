@@ -7,13 +7,13 @@
  * \addtogroup uiparp
  * @{
  */
- 
+
 /**
  * \file
  * Macros and definitions for the ARP module.
  * \author Adam Dunkels <adam@dunkels.com>
  */
-  
+
 
 /*
  * Copyright (c) 2001-2003, Adam Dunkels.
@@ -60,13 +60,15 @@ extern struct uip_eth_addr uip_ethaddr;
 /**
  * The Ethernet header.
  */
-struct uip_eth_hdr {
+struct uip_eth_hdr
+{
   struct uip_eth_addr dest;
   struct uip_eth_addr src;
   u16_t type;
 };
 
-struct arp_entry {
+struct arp_entry
+{
   u16_t ipaddr[2];
   struct uip_eth_addr ethaddr;
   u8_t time;
@@ -78,13 +80,13 @@ struct arp_entry {
 #define UIP_ETHTYPE_IP  0x0800
 #define UIP_ETHTYPE_IP6 0x86dd
 
-struct arp_entry *find_arp_entry(uip_ipaddr_t ipaddr);
-struct arp_entry *find_arp_victim(void);
+struct arp_entry *find_arp_entry (uip_ipaddr_t ipaddr);
+struct arp_entry *find_arp_victim (void);
 extern u8_t arptime;
 
 /* The uip_arp_init() function must be called before any of the other
    ARP functions. */
-void uip_arp_init(void);
+void uip_arp_init (void);
 
 /* The uip_arp_ipin() function should be called whenever an IP packet
    arrives from the Ethernet. This function refreshes the ARP table or
@@ -100,7 +102,7 @@ void uip_arp_init(void);
    uip_arp_arpin() function returns, the contents of the uip_buf
    buffer should be sent out on the Ethernet if the uip_len variable
    is > 0. */
-void uip_arp_arpin(void);
+void uip_arp_arpin (void);
 
 /* The uip_arp_out() function should be called when an IP packet
    should be sent out on the Ethernet. This function creates an
@@ -112,13 +114,13 @@ void uip_arp_arpin(void);
    request and we rely on TCP to retransmit the packet that was
    overwritten. In any case, the uip_len variable holds the length of
    the Ethernet frame that should be transmitted. */
-void uip_arp_out(void);
+void uip_arp_out (void);
 
 /* The uip_arp_timer() function should be called every ten seconds. It
    is responsible for flushing old entries in the ARP table. */
-void uip_arp_timer(void);
+void uip_arp_timer (void);
 
-uint8_t uip_arp_entry_exists(uint16_t *ipaddr);
+uint8_t uip_arp_entry_exists (uint16_t * ipaddr);
 
 /** @} */
 

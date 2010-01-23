@@ -14,22 +14,22 @@
 
 //*****************************************************************************
 //
-// File Name	: 'ax88796.h'
-// Title		: ASIX 88796 L Ethernet Interface Driver
-// Author		: Pascal Stang
-// Created		: 10/22/2002
-// Revised		: 10/26/2002
-// Version		: 0.1
-// Target MCU	: Atmel AVR series
-// Editor Tabs	: 4
+// File Name    : 'ax88796.h'
+// Title                : ASIX 88796 L Ethernet Interface Driver
+// Author               : Pascal Stang
+// Created              : 10/22/2002
+// Revised              : 10/26/2002
+// Version              : 0.1
+// Target MCU   : Atmel AVR series
+// Editor Tabs  : 4
 //
-// Description	: This include file is designed to contain items useful to all
-//					code files and projects.
+// Description  : This include file is designed to contain items useful to all
+//                                      code files and projects.
 //
 // Based in part on code by Louis Beaudoin (www.embedded-creations.com)
 //
 // This code is distributed under the GNU Public License
-//		which can be found at http://www.gnu.org/licenses/gpl.txt
+//              which can be found at http://www.gnu.org/licenses/gpl.txt
 //
 //*****************************************************************************
 
@@ -129,7 +129,7 @@
 #define ETHERNET_HEADER_LENGTH		0x0E
 
 //******************************************************************
-//*	ASIX 88796 L CONTROL REGISTER OFFSETS
+//*     ASIX 88796 L CONTROL REGISTER OFFSETS
 //******************************************************************
 // Page 0
 #define CR		 	0x00
@@ -176,28 +176,28 @@
 #define CPR			0x07	// Page 1
 
 //******************************************************************
-//*	ASIX 88796 L CR REGISTER BIT DEFINITIONS
+//*     ASIX 88796 L CR REGISTER BIT DEFINITIONS
 //******************************************************************
-#define  PS1		0x80 
-#define  PS0		0x40 
-#define  RD2		0x20 
-#define  RD1		0x10 
-#define  RD0		0x08 
-#define  TXP		0x04 
-#define  START		0x02 
-#define  STOP		0x01 
+#define  PS1		0x80
+#define  PS0		0x40
+#define  RD2		0x20
+#define  RD1		0x10
+#define  RD0		0x08
+#define  TXP		0x04
+#define  START		0x02
+#define  STOP		0x01
 //******************************************************************
-//*	ASIX 88796 L RCR REGISTER BIT DEFINITIONS
+//*     ASIX 88796 L RCR REGISTER BIT DEFINITIONS
 //******************************************************************
-#define  INTT		0x40 
-#define  MON		0x20 
-#define  PRO		0x10 
-#define  AM			0x08 
-#define  AB			0x04 
-#define  AR			0x02 
-#define  SEP		0x01 
+#define  INTT		0x40
+#define  MON		0x20
+#define  PRO		0x10
+#define  AM			0x08
+#define  AB			0x04
+#define  AR			0x02
+#define  SEP		0x01
 //******************************************************************
-//*	ASIX 88796 L ISR REGISTER BIT DEFINITIONS
+//*     ASIX 88796 L ISR REGISTER BIT DEFINITIONS
 //******************************************************************
 #define  RST		0x80
 #define  RDC		0x40
@@ -207,21 +207,21 @@
 #define  PTX		0x02
 #define  PRX		0x01
 //******************************************************************
-//*	ASIX 88796 L TEST REGISTER DEFINITIONS
+//*     ASIX 88796 L TEST REGISTER DEFINITIONS
 //******************************************************************
-#define  AUTOD		0x01 
+#define  AUTOD		0x01
 #define  RST_B		0x02
 #define  RST_10B	0x04
 #define  RST_TXB	0x08
 //******************************************************************
-//*	ASIX 88796 L GPOC BITS DEFINITIONS
+//*     ASIX 88796 L GPOC BITS DEFINITIONS
 //******************************************************************
 #define  GPO0		0x01
 #define	 MPSEL		0x10
 #define  MPSET		0x20
 #define  PPDSET		0x40
 //******************************************************************
-//*	ASIX 88796 L MEMR BITS DEFINITIONS
+//*     ASIX 88796 L MEMR BITS DEFINITIONS
 //******************************************************************
 #define  MDC		0x01
 #define  MDIR		0x02
@@ -232,7 +232,7 @@
 #define  EEO		0x40
 #define  EECLK		0x80
 //******************************************************************
-//*	ASIX 88796 L GPI BITS DEFINITIONS
+//*     ASIX 88796 L GPI BITS DEFINITIONS
 //******************************************************************
 #define  GPI2		0x40
 #define  GPI1		0x20
@@ -241,7 +241,7 @@
 #define  I_DPX		0x02
 #define  I_LINK		0x01
 //******************************************************************
-//*	ASIX 88796 L TCR BITS DEFINITIONS
+//*     ASIX 88796 L TCR BITS DEFINITIONS
 //******************************************************************
 #define  FDU		0x80	// full duplex
 #define  PD			0x40	// pad disable
@@ -251,15 +251,15 @@
 #define  CRC		0x01	// generate CRC
 
 //******************************************************************
-//*	ASIX 88796 L INITIAL REGISTER VALUES
+//*     ASIX 88796 L INITIAL REGISTER VALUES
 //******************************************************************
 // RCR : INT trigger active high and Accept Broadcast enet packets
 #define RCR_INIT		(INTT | AB)
-#define DCR_INIT		0x00   // was 0x58 for realtek RTL8019
+#define DCR_INIT		0x00	// was 0x58 for realtek RTL8019
 // TCR : default transmit operation - CRC is generated
 #define TCR_INIT		0x00
 // IMR : interrupt enabled for receive and overrun events
-#define IMR_INIT		0x11    // PRX and OVW interrupt enabled
+#define IMR_INIT		0x11	// PRX and OVW interrupt enabled
 // buffer boundaries - transmit has 6 256-byte pages
 //   receive has 26 256-byte pages
 //   entire available packet buffer space is allocated
@@ -275,7 +275,7 @@
 *  Description: Sets up the ports used for communication with the RTL8019 NIC
 *                 (data bus, address bus, read, write, and reset)
 *****************************************************************************/
-void ax88796SetupPorts(void);
+void ax88796SetupPorts (void);
 
 /*****************************************************************************
 *  readRTL(RTL_ADDRESS)
@@ -293,7 +293,7 @@ void ax88796SetupPorts(void);
 *            an input, and is left as an input port when done
 *
 *****************************************************************************/
-u08 ax88796Read(u08 address);
+u08 ax88796Read (u08 address);
 
 /*****************************************************************************
 *  writeRTL( RTL_ADDRESS, RTL_DATA )
@@ -312,7 +312,7 @@ u08 ax88796Read(u08 address);
 *            state with pullups enabled
 *
 *****************************************************************************/
-void ax88796Write(u08 address, u08 data);
+void ax88796Write (u08 address, u08 data);
 
 /*****************************************************************************
 *  initRTL8019(void);
@@ -322,7 +322,7 @@ void ax88796Write(u08 address, u08 data);
 *  Description: Sets up the RTL8019 NIC hardware interface, and initializes
 *                 the buffers and configuration of the NIC
 *****************************************************************************/
-void ax88796Init(void);
+void ax88796Init (void);
 
 /*****************************************************************************
 *  RTL8019beginPacketSend(unsigned int packetLength)
@@ -334,7 +334,7 @@ void ax88796Init(void);
 *                 Ethernet frame length.  The transmit length is automatically
 *                 increased to 60 bytes if packetLength is < 60
 *****************************************************************************/
-void ax88796BeginPacketSend(unsigned int packetLength);
+void ax88796BeginPacketSend (unsigned int packetLength);
 
 /*****************************************************************************
 *  RTL8019sendPacketData(unsigned char * localBuffer, unsigned int length)
@@ -351,7 +351,7 @@ void ax88796BeginPacketSend(unsigned int packetLength);
 *               Several calls to RTL8019retreivePacketData() may be made to 
 *                 copy packet data from different buffers
 *****************************************************************************/
-void ax88796SendPacketData(unsigned char * localBuffer, unsigned int length);
+void ax88796SendPacketData (unsigned char *localBuffer, unsigned int length);
 
 /*****************************************************************************
 *  RTL8019endPacketSend()
@@ -360,7 +360,7 @@ void ax88796SendPacketData(unsigned char * localBuffer, unsigned int length);
 *  Description: Ends a packet send operation and instructs the NIC to transmit
 *                 the frame over the network
 *****************************************************************************/
-void ax88796EndPacketSend(void);
+void ax88796EndPacketSend (void);
 
 /*****************************************************************************
 *  overrun(void);
@@ -372,7 +372,7 @@ void ax88796EndPacketSend(void);
 *  Notes:       This function must be called before retreiving packets from
 *                 the NIC if there is a buffer overrun
 *****************************************************************************/
-void ax88796Overrun(void);
+void ax88796Overrun (void);
 
 /*****************************************************************************
 *  processRTL8019Interrupt(void);
@@ -386,7 +386,7 @@ void ax88796Overrun(void);
 *                 line not used.  This function should be called before
 *                 attempting to retreive a packet from the NIC
 *****************************************************************************/
-void ax88796ProcessInterrupt(void);
+void ax88796ProcessInterrupt (void);
 
 /*****************************************************************************
 *  unsigned char RTL8019ReceiveEmpty(void);
@@ -415,7 +415,7 @@ void ax88796ProcessInterrupt(void);
 *                 call to RTL8019endPacketRetreive() regardless if data is
 *                 retreived, unless 0 is returned.
 *****************************************************************************/
-unsigned int ax88796BeginPacketRetreive(void);
+unsigned int ax88796BeginPacketRetreive (void);
 
 /*****************************************************************************
 *  RTL8019retreivePacketData(unsigned char * localBuffer, unsigned int length)
@@ -432,8 +432,8 @@ unsigned int ax88796BeginPacketRetreive(void);
 *               Several calls to RTL8019retreivePacketData() may be made to 
 *                 copy packet data to different buffers
 *****************************************************************************/
-void ax88796RetreivePacketData(unsigned char * localBuffer,
-                               unsigned int length);
+void ax88796RetreivePacketData (unsigned char *localBuffer,
+				unsigned int length);
 
 /*****************************************************************************
 *  RTL8019endPacketRetreive()
@@ -446,17 +446,18 @@ void ax88796RetreivePacketData(unsigned char * localBuffer,
 *                 by calling RTL8019endPacketRetreive() after
 *                 RTL8019beginPacketRetreive().
 *****************************************************************************/
-void ax88796EndPacketRetreive(void);
+void ax88796EndPacketRetreive (void);
 
 
 //******************************************************************
-//*	WRITE MII REGISTERS
+//*     WRITE MII REGISTERS
 //******************************************************************
-void ax88796WriteMii(unsigned char phyad,unsigned char regad,unsigned int mii_data);
+void ax88796WriteMii (unsigned char phyad, unsigned char regad,
+		      unsigned int mii_data);
 
 //******************************************************************
-//*	READ MII REGISTERS
+//*     READ MII REGISTERS
 //******************************************************************
-unsigned int ax88796ReadMii(unsigned char phyad,unsigned char regad);
+unsigned int ax88796ReadMii (unsigned char phyad, unsigned char regad);
 
 #endif

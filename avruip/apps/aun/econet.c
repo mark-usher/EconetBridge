@@ -20,12 +20,13 @@
 #include "aun.h"
 
 
-unsigned char Econet_Find(unsigned char *Net, unsigned char *Stn)
+unsigned char
+Econet_Find (unsigned char *Net, unsigned char *Stn)
 {
 
 
-//	return 0;	// not found
-	return 1;	// found
+//      return 0;       // not found
+  return 1;			// found
 
 
 }

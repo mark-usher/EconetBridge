@@ -41,7 +41,7 @@
 *                 Ethernet frame length.  The transmit length is automatically
 *                 increased to 60 bytes if packetLength is < 60
 *****************************************************************************/
-void rtl8019BeginPacketSend(unsigned int packetLength);
+void rtl8019BeginPacketSend (unsigned int packetLength);
 
 
 /*****************************************************************************
@@ -59,7 +59,7 @@ void rtl8019BeginPacketSend(unsigned int packetLength);
 *               Several calls to RTL8019retreivePacketData() may be made to 
 *                 copy packet data from different buffers
 *****************************************************************************/
-void rtl8019SendPacketData(unsigned char * localBuffer, unsigned int length);
+void rtl8019SendPacketData (unsigned char *localBuffer, unsigned int length);
 
 
 /*****************************************************************************
@@ -69,7 +69,7 @@ void rtl8019SendPacketData(unsigned char * localBuffer, unsigned int length);
 *  Description: Ends a packet send operation and instructs the NIC to transmit
 *                 the frame over the network
 *****************************************************************************/
-void rtl8019EndPacketSend(void);
+void rtl8019EndPacketSend (void);
 
 
 /*****************************************************************************
@@ -80,7 +80,7 @@ void rtl8019EndPacketSend(void);
 *  Description: Sets up the RTL8019 NIC hardware interface, and initializes
 *                 the buffers and configuration of the NIC
 *****************************************************************************/
-void rtl8019Init(void);
+void rtl8019Init (void);
 
 
 /*****************************************************************************
@@ -95,7 +95,7 @@ void rtl8019Init(void);
 *                 line not used.  This function should be called before
 *                 attempting to retreive a packet from the NIC
 *****************************************************************************/
-void rtl8019ProcessInterrupt(void);
+void rtl8019ProcessInterrupt (void);
 
 
 /*****************************************************************************
@@ -113,7 +113,7 @@ void rtl8019ProcessInterrupt(void);
 *                 call to RTL8019endPacketRetreive() regardless if data is
 *                 retreived, unless 0 is returned.
 *****************************************************************************/
-unsigned int rtl8019BeginPacketRetreive(void);
+unsigned int rtl8019BeginPacketRetreive (void);
 
 
 /*****************************************************************************
@@ -131,8 +131,8 @@ unsigned int rtl8019BeginPacketRetreive(void);
 *               Several calls to RTL8019retreivePacketData() may be made to 
 *                 copy packet data to different buffers
 *****************************************************************************/
-void rtl8019RetreivePacketData(unsigned char * localBuffer,
-                               unsigned int length);
+void rtl8019RetreivePacketData (unsigned char *localBuffer,
+				unsigned int length);
 
 /*****************************************************************************
 *  rtl8019EndPacketRetreive()
@@ -145,7 +145,7 @@ void rtl8019RetreivePacketData(unsigned char * localBuffer,
 *                 by calling RTL8019endPacketRetreive() after
 *                 RTL8019beginPacketRetreive().
 *****************************************************************************/
-void rtl8019EndPacketRetreive(void);
+void rtl8019EndPacketRetreive (void);
 
 
 /*****************************************************************************
@@ -187,7 +187,7 @@ void rtl8019EndPacketRetreive(void);
 #if NIC_CONNECTION != GENERAL_IO
 /*** NIC Interface through External SRAM Interface ****/
 #define MEMORY_MAPPED_RTL8019_OFFSET 0x8300
-#else 
+#else
 /************ NIC Interface through General I/O *******************/
 
 // RTL8019 address port

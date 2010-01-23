@@ -88,7 +88,7 @@
  * uip_len variable.
  *
  */
-void uip_split_output(void);
+void uip_split_output (void);
 
 #endif /* __UIP_SPLIT_H__ */
 

@@ -51,14 +51,14 @@
  * Called when the shell front-end process starts. This function may
  * be used to start listening for signals.
  */
-void shell_init(void);
+void shell_init (void);
 
 /**
  * Start the shell back-end.
  *
  * Called by the front-end when a new shell is started.
  */
-void shell_start(void);
+void shell_start (void);
 
 /**
  * Process a shell command.
@@ -69,13 +69,13 @@ void shell_start(void);
  *
  * \param command The command to be processed.
  */
-void shell_input(char *command);
+void shell_input (char *command);
 
 /**
  * Quit the shell.
  *
  */
-void shell_quit(char *);
+void shell_quit (char *);
 
 
 /**
@@ -88,7 +88,7 @@ void shell_quit(char *);
  * \param str1 The first half of the string to be output.
  * \param str2 The second half of the string to be output.
  */
-void shell_output(char *str1, char *str2);
+void shell_output (char *str1, char *str2);
 
 /**
  * Print a prompt to the shell window.
@@ -99,6 +99,6 @@ void shell_output(char *str1, char *str2);
  * \param prompt The prompt to be printed.
  *
  */
-void shell_prompt(char *prompt);
+void shell_prompt (char *prompt);
 
 #endif /* __SHELL_H__ */

@@ -62,7 +62,7 @@
  * from the main() function of the system.
  *
  */
-void clock_init(void);
+void clock_init (void);
 
 /**
  * Get the current clock time.
@@ -71,7 +71,7 @@ void clock_init(void);
  *
  * \return The current clock time, measured in system ticks.
  */
-clock_time_t clock_time(void);
+clock_time_t clock_time (void);
 
 /**
  * A second, measured in system clock time.

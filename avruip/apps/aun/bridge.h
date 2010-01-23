@@ -22,7 +22,7 @@
 
 #include <stdint.h>
 
-extern void handle_port_9c(uint16_t length);
+extern void handle_port_9c (uint16_t length);
 
 
 #endif /* __BRIDGE_H__ */

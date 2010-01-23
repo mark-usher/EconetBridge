@@ -29,13 +29,13 @@
 
 struct frag_mbuf
 {
-	struct mbuf *next, *prev;
-	uint8_t length;
-	uint8_t pad;
-	uint8_t data[UIP_IPH_LEN + UIP_LLH_LEN + 8];
+  struct mbuf *next, *prev;
+  uint8_t length;
+  uint8_t pad;
+  uint8_t data[UIP_IPH_LEN + UIP_LLH_LEN + 8];
 };
 
-struct mbuf *uip_to_mbufs(void);
+struct mbuf *uip_to_mbufs (void);
 
 #if NIC_CHOICE == RTL8019
 #include "rtl8019.h"
@@ -76,7 +76,7 @@ struct mbuf *uip_to_mbufs(void);
 *  Date:        November 16, 2003
 *  Description: Power-up initialization of the NIC
 *****************************************************************************/
-void nic_init(void);
+void nic_init (void);
 
 
 /*****************************************************************************
@@ -86,7 +86,7 @@ void nic_init(void);
 *  Description: Sends the packet contained in uip_buf and uip_appdata over
 *                 the network
 *****************************************************************************/
-void nic_send(struct mbuf *mb);
+void nic_send (struct mbuf *mb);
 
 
 /*****************************************************************************
@@ -100,9 +100,9 @@ void nic_send(struct mbuf *mb);
 *                 returned.  A packet bigger than the buffer is discarded
 *****************************************************************************/
 #if UIP_BUFSIZE > 255
-unsigned short nic_poll(void);
+unsigned short nic_poll (void);
 #else
-unsigned char nic_poll(void);
+unsigned char nic_poll (void);
 #endif /* UIP_BUFSIZE > 255 */
 
 
