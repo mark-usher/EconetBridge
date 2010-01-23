@@ -61,7 +61,7 @@ void serial_packet(unsigned short pktbuff, unsigned short pktlen)
 // print out packet content
 	unsigned short c;
 	unsigned short *x;
-	x=pktbuff;
+	x=(unsigned short *)pktbuff;
 
   for(c=0; c < pktlen/2; c++) {	
 	serial_shortLH(*x++);
@@ -71,4 +71,6 @@ void serial_packet(unsigned short pktbuff, unsigned short pktlen)
 
 	return;
 }
+
+
 

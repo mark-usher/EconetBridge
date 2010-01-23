@@ -31,7 +31,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: main.c,v 1.30 2010/01/23 13:26:04 markusher Exp $
+ * $Id: main.c,v 1.31 2010/01/23 16:30:25 markusher Exp $
  *
  */
 
@@ -89,7 +89,7 @@ void AVR_init(void)
 	TCCR0 = (1 << WGM01) | (1 << COM00) | (1 << CS00);
 
 	// set up timer 1 to generate Econet clock output
-	/* to do - add the multiplier parameter in CMOS to configure speed */
+	/* to do - add the clock multiplier parameter in CMOS to configure speed */
 	TCCR1A = (1 << WGM11) | (1 << COM1A1);
 	TCCR1B = (1 << WGM13) | (1 << WGM12) | (1 << CS10); // no prescaling
 
@@ -113,7 +113,7 @@ static void maybe_send(void)
   }
 }
 
-int main(void) __attribute__ ((noreturn));
+//int main(void) __attribute__ ((noreturn));
 
 /*---------------------------------------------------------------------------*/
 int

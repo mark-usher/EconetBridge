@@ -24,7 +24,7 @@
 #define ETHERNET_HEADER_LENGTH	0x0E
 #define TOTAL_HEADER_LENGTH (IP_TCP_HEADER_LENGTH + ETHERNET_HEADER_LENGTH)
 
-#define DEBUG 1
+//#define DEBUG 1
 #define IP_MF   0x20
 
 
@@ -114,7 +114,7 @@ send_frag(struct mbuf *mb, uint16_t length)
 */
 if (*(mb->data+0x22) == HTONS(MNSDATAPORT)){	// only output AUN packets
 	serial_tx_str ("eth tx ");
-	serial_packet(mb->data+42, length-42);	// write out the payload
+	serial_packet((unsigned short)&mb->data+42, length-42);	// write out the payload
 	serial_crlf ();					// add extra CR LF for spacing
 	}
 //	memset (&mb->data[0], 0xff, 6);
@@ -127,7 +127,7 @@ if (*(mb->data+0x22) == HTONS(MNSDATAPORT)){	// only output AUN packets
 		uint16_t this_length = mb->length;
 		if (this_length > length)
 			this_length = length;
-            NICSendPacketData(mb->data, this_length);
+            NICSendPacketData((struct mbuf *) &mb->data, this_length);
 		length -= this_length;
             mb = mb->next;
       }
@@ -166,7 +166,7 @@ nic_send(struct mbuf *mb)
       while (mbp) {
 		if ((length + mbp->length) >= UIP_BUFSIZE) {
 			/* packet needs fragmenting */
-			struct uip_tcpip_hdr *BUF = &this_mb->data[UIP_LLH_LEN];
+			struct uip_tcpip_hdr *BUF = (struct uip_tcpip_hdr *)&this_mb->data[UIP_LLH_LEN];
 			uint16_t payload_length = length - (UIP_IPH_LEN + UIP_LLH_LEN);
 			uint8_t overdone = payload_length & 7;
 			length -= overdone;
@@ -184,7 +184,7 @@ nic_send(struct mbuf *mb)
 		mbp = mbp->next;
         }
 
-	struct uip_tcpip_hdr *BUF = &this_mb->data[UIP_LLH_LEN];
+	struct uip_tcpip_hdr *BUF = (struct uip_tcpip_hdr *)&this_mb->data[UIP_LLH_LEN];
 	BUF->ipoffset[0] &= ~IP_MF;
 	send_frag (this_mb, length);
 
@@ -231,13 +231,13 @@ unsigned char nic_poll(void)
 	}
 
 	// copy the packet data into the uIP packet buffer
-	NICRetreivePacketData( uip_buf, packetLength );
+	NICRetreivePacketData((struct mbuf *) &uip_buf, packetLength );
 
 #ifdef DEBUG
 
 if (*(uip_buf+0x22) == HTONS(MNSDATAPORT)){		// only output AUN packets
 	serial_tx_str ("eth rx ");
-	serial_packet(uip_buf+42, packetLength-42);	// write out the payload
+	serial_packet((unsigned short)&uip_buf+42, packetLength-42);	// write out the payload
 }
 #endif
 
