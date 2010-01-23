@@ -29,11 +29,11 @@
 
 output_ChipID:
 	ldi	serial_tx_arg, 0x0D		; CR
-	rcall 	serial_tx
+	rcall	serial_tx
 	ldi	serial_tx_arg, 0x0A		; LF
-	rcall 	serial_tx
+	rcall	serial_tx
 	ldi	serial_tx_arg, 0x54		; T
-	rcall 	serial_tx
+	rcall	serial_tx
 
 	; Information: read Chip Id and Revision
 ;	chip_type = ReadPPRegister(PP_ChipID);
@@ -43,14 +43,14 @@ output_ChipID:
 
 	push	r24
 	mov	r24, r25
-	rcall 	serial_tx_hex
+	rcall	serial_tx_hex
 	pop	r24
-	rcall 	serial_tx_hex
+	rcall	serial_tx_hex
 
 	ldi	serial_tx_arg, 0x20		; space
-	rcall 	serial_tx
+	rcall	serial_tx
 	ldi	serial_tx_arg, 0x52		; R
-	rcall 	serial_tx
+	rcall	serial_tx
 
 ;	chip_rev = ReadPPRegister(PP_ChipRev);
 	ldi	r24, lo8(PP_ChipRev)		; LSB register
@@ -59,9 +59,9 @@ output_ChipID:
 
 	push	r24
 	mov	r24, r25
-	rcall 	serial_tx_hex
+	rcall	serial_tx_hex
 	pop	r24
-	rcall 	serial_tx_hex
+	rcall	serial_tx_hex
 
 	ldi	serial_tx_arg, 0x0D		; CR
 	rcall 	serial_tx
@@ -127,7 +127,7 @@ step2:
 
 	; step 4: Configure TestCTL 
 
- 	ldi	r24, lo8(PP_LineCTL)		; LSB register
+	ldi	r24, lo8(PP_LineCTL)		; LSB register
 	ldi	r25, hi8(PP_LineCTL)		; MSB register
 	clr	r22				; LSB data
 	ldi	r23, hi8(PP_TestCTL_FDX)	; MSB data	-this should really be taken from the EEPROM config
@@ -275,7 +275,7 @@ writeTxCMD:
 	ldi	r24, 0x1
 	ret
 
-     	; Step 4: check if chip is ready for Tx now
+	; Step 4: check if chip is ready for Tx now
 	; If Bid4Tx not ready, skip the frame
 
 NoTxBidErr:
@@ -451,10 +451,16 @@ delay_loop:
 	brne	delay_loop
 
 
+; -----------------------------------------------------------------------------------------
+; CS8900 cs8900SendPacketData
+; -----------------------------------------------------------------------------------------
+; 
+; on entry
+; 		r24/r25 = buffer
+;		r22/r23 = length
+; on exit
 
-	;; r24/r25 buffer
-	;; r22/r23 length
-	.globl	cs8900SendPacketData
+.global	cs8900SendPacketData
 cs8900SendPacketData:
 	mov	r31, r25
 	mov	r30, r24
@@ -479,15 +485,26 @@ done:
 	sts	CS8900_RTDATA, r20
 	ret
 
-	.globl	cs8900RetreivePacketData
+
+; -----------------------------------------------------------------------------------------
+; CS8900 cs8900RetreivePacketData
+; -----------------------------------------------------------------------------------------
+; 
+; on entry
+; 		r24/r25 = address of the buffer to place the data
+;		r22/r23 = address to hold the length of the data
+
+
+.global	cs8900RetreivePacketData
 cs8900RetreivePacketData:
-	mov	r31, r25
-	mov	r30, r24
-	mov	tmp1, r22
-	andi	r22, 0xfe
+;	mov	r31, r25
+;	mov	r30, r24
+	movw	r30, r24			; put the buffer address in Z
+	mov	tmp1, r22			; store a copy of length destination in tmp1
+	andi	r22, 0xfe			; make sure it is even
 	clr	r24
 	clr	r25
-	sbc	r24, r22
+	sbc	r24, r22			
 	sbc	r25, r23
 	breq	2f
 1:	
@@ -516,8 +533,8 @@ cs8900_poll_retrieve:
 	; polls the Rx, Tx, Buff registers, returning with r24 & r25 the data else 0
     
 	; Read Rx Event register into r24 and r25
-	ldi	r24, lo8(PP_RER)		; LSB register
-	ldi	r25, hi8(PP_RER)		; MSB register
+	ldi	r24, lo8(PP_RER)			; LSB register
+	ldi	r25, hi8(PP_RER)			; MSB register
 	rcall	ReadPPRegister			; returned in r24 & r25
 
  	cpi	r24,ISQ_RxEvent			; result > 0x0004 = RxEvent?
@@ -598,13 +615,13 @@ rx_skip:
 	ldi	r24, lo8(PP_RxCFG)		; LSB register
 	ldi	r25, hi8(PP_RxCFG)		; MSB register
 	rcall	ReadPPRegister
- 	movw	r22,r24
+	movw	r22,r24
 
 	ori	r22,lo8(PP_RxCFG_Skip1)		; LSB data OR RX_Skip_1
 	ldi	r24, lo8(PP_RxCFG)		; LSB register
 	ldi	r25, hi8(PP_RxCFG)		; MSB register
 	rcall	WritePPRegister
-	
+
 return0:
 	clr	r24
 	clr	r25
@@ -671,7 +688,7 @@ copy_rx_data:
 	st	Z+, r24				; store it in memory
 
 	cp	ZH, YH				; pointer = end of data High byte?
-	brne	skip_rx_LSB			; no, don't bother checking the low byte
+	brne	skip_rx_LSB				; no, don't bother checking the low byte
 
 	cp	ZL, YL				; ZH=LH at this stage. does pointer low byte = end of data low byte
 	breq	exit_copy_rx_data_loop		; yes. Data end reached. Finish
@@ -691,7 +708,7 @@ exit_copy_rx_data_loop:
 	; reading the RxEvent register signals that the host is finished with this frame.
 	; this is done, when returning from this procedure on the next poll
 
-	ldi	r24, PACKET_Rx			
+	ldi	r24, PACKET_Rx
 	sts	cs8900_state, r24		; set state
 
 	ret
@@ -714,11 +731,11 @@ ReadRxStatusLengthRegister:
 ;	push	r25
 ;	mov	tmp1, r24
 ;	ldi	serial_tx_arg, 0x4F		; O
-;	rcall 	serial_tx
+;	rcall serial_tx
 ;	mov	serial_tx_arg, tmp1
-;	rcall 	serial_tx_hex
+;	rcall serial_tx_hex
 ;	ldi	serial_tx_arg, 0x20		; space
-;	rcall 	serial_tx
+;	rcall serial_tx
 ;	pop	r25
 ;	pop	r24
 
@@ -729,31 +746,31 @@ ReadRxStatusLengthRegister:
 
 
 ReadRxStatusLengthRegister_alt:
-	push r17
+	push	r17
 
-	ldi r24,lo8(CS8900_RTDATA + 1)
-	ldi r25,hi8(CS8900_RTDATA + 1)
+	ldi	r24,lo8(CS8900_RTDATA + 1)
+	ldi	r25,hi8(CS8900_RTDATA + 1)
 
-	movw r30,r24
-	ld r24,Z
-	ldi r25,lo8(0)
+	movw	r30,r24
+	ld	r24,Z
+	ldi	r25,lo8(0)
 
-	mov r17,r24
+	mov	r17,r24
 
-	ldi r24,lo8(CS8900_RTDATA)
-	ldi r25,hi8(CS8900_RTDATA)
+	ldi	r24,lo8(CS8900_RTDATA)
+	ldi	r25,hi8(CS8900_RTDATA)
 
-	movw r30,r24
-	ld r24,Z
-	ldi r25,lo8(0)
+	movw	r30,r24
+	ld 	r24,Z
+	ldi	r25,lo8(0)
 
-	mov r19,r17
-	ldi r18,lo8(0)
-	or r18,r24
-	or r19,r25
+	mov	r19,r17
+	ldi	r18,lo8(0)
+	or	r18,r24
+	or	r19,r25
 
-	movw r24,r18
+	movw	r24,r18
 
-	pop r17
+	pop	r17
 	ret
 	
