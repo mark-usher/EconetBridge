@@ -22,11 +22,11 @@
 
 #include <stdint.h>
 
+void serial_packet(unsigned short pktbuff, unsigned short pktlen);
 extern void serial_short(unsigned short);
 extern void serial_shortLH(unsigned short);
 extern void serial_crlf(void);
 extern void serial_tx_str(char *msg);
-extern void serial_packet(unsigned short, unsigned short);
 
 
 extern void serial_tx(uint8_t mask);
