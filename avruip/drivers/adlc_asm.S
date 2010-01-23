@@ -3,20 +3,20 @@
 ; =======================================================================
 
 #define _SFR_ASM_COMPAT 1
-#define __SFR_OFFSET 0     /* Required for port labels to work as expected */
-#include <avr/io.h>        /* Contains I/O port declarations */
+#define __SFR_OFFSET 0	 /* Required for port labels to work as expected */
+#include <avr/io.h>	/* Contains I/O port declarations */
 
 #include "adlc.h"
 #include "egpio.h"
 
 
 // The ADLC has four control registers and two status registers.
-#define	ADLC_CR1		0
-#define	ADLC_CR2		1			// control bit 0
-#define	ADLC_CR3		1 			// control bit 1
-#define	ADLC_CR4		3
-#define	ADLC_SR1		0
-#define	ADLC_SR2		1
+#define	ADLC_CR1	0
+#define	ADLC_CR2	1		// control bit 0
+#define	ADLC_CR3	1 		// control bit 1
+#define	ADLC_CR4	3
+#define	ADLC_SR1	0
+#define	ADLC_SR2	1
 
 #define	ADLC_TXCONTINUE	2
 #define	ADLC_TXTERMINATE	3
@@ -29,77 +29,77 @@
 #define	CR1_RDSR_MODE	0x08		// -not used (DMA)
 #define	CR1_TDSR_MODE	0x10		// -not used (DMA)
 #define	CR1_DISCONTINUE	0x20		// -not used Rx Frame Discontinue
-#define	CR1_RXRESET		0x40		// Resets all Rx status and FIFO registers
-#define	CR1_TXRESET		0x80		// Resets all Tx status and FIFO registers
+#define	CR1_RXRESET	0x40		// Resets all Rx status and FIFO registers
+#define	CR1_TXRESET	0x80		// Resets all Tx status and FIFO registers
 
 // control register 2
 #define	CR2_PSE		0x01		// Status bit prioritised
-#define	CR2_TWOBYTE		0x02		// Should be set. Causes ADLC to work in two byte mode so that
-							// Receive Data Available and Transmit Data Register Available are
-							// asserted when two data bytes are ready and two transmit registers
-							// available
+#define	CR2_TWOBYTE	0x02		// Should be set. Causes ADLC to work in two byte mode so that
+					// Receive Data Available and Transmit Data Register Available are
+					// asserted when two data bytes are ready and two transmit registers
+					// available
 #define	CR2_FLAGIDLE	0x04		// Determines whether flag fill or mark idle is to be used between
-							// packet transfers
+					// packet transfers
 #define	CR2_FC		0x08		// Select frame complete or Tx data register (TDRA) ready
-#define	CR2_TXLAST		0x10		// Transmit last byte. (Initially set to 0// used to indicate when
-							// CRC and closing flag should be transmitted.)
-#define	CR2_CLRRX		0x20		// When set Rx status bits are cleared
-#define	CR2_CLRTX		0x40		// When set Tx status bits are cleared
+#define	CR2_TXLAST	0x10		// Transmit last byte. (Initially set to 0// used to indicate when
+					// CRC and closing flag should be transmitted.)
+#define	CR2_CLRRX	0x20		// When set Rx status bits are cleared
+#define	CR2_CLRTX	0x40		// When set Tx status bits are cleared
 #define	CR2_RTS		0x80		// Request to send. Controls the RTS output used to enable the
-							// output transmit driver.
+					// output transmit driver.
 // control register 3
 #define	CR3_LCF		0x01		// Indicates that no logical control field select byte is included in the packet
 #define	CR3_CEX		0x02		// Indicates control field is 8 bits long
 #define	CR3_AEX		0x04		// No auto address extend// ADLC assumes 8 bit address. (Although
-							// Econet uses 15 bit addresses, the ADLC's auto address extend
-							// facility is not used since the high order bit has special 
-							// significance.)
+					// Econet uses 15 bit addresses, the ADLC's auto address extend
+					// facility is not used since the high order bit has special 
+					// significance.)
 #define	CR3_ZERO_ONE	0x08		// Idle. (01/11). set to be all ones
-#define	CR3_FDSE		0x10		// - not used Flag Detected Status Enable
-#define	CR3_LOOP		0x20		// - not used Loop/Non loop mode
+#define	CR3_FDSE	0x10		// - not used Flag Detected Status Enable
+#define	CR3_LOOP	0x20		// - not used Loop/Non loop mode
 #define	CR3_TST		0x40		// - not used Go Active on Poll / test
 #define	CR3_DTR		0x80		// - not used Loop On-Line Control DTR
 
 // control register 4
-#define	CR4_DFSF		0x01		// Indicates closing flag of one packet is also opening flag of
-							// next. (Irrelevant in Econet systems since reception always 
-							// follows transmission.)
-#define	CR4_TXWLS		0x06  		// Set Tx word length to 8 bits
-#define	CR4_RXWLS		0x18		// Set Rx word length to 8 bits
+#define	CR4_DFSF	0x01		// Indicates closing flag of one packet is also opening flag of
+					// next. (Irrelevant in Econet systems since reception always 
+					// follows transmission.)
+#define	CR4_TXWLS	0x06  		// Set Tx word length to 8 bits
+#define	CR4_RXWLS	0x18		// Set Rx word length to 8 bits
 #define	CR4_ABT		0x20		// - not used Transmit Abort
-#define	CR4_ABTEX		0x40		// - not used Abort Extend
-#define	CR4_NRZI		0x80		// - not used NRZI/NRZ
+#define	CR4_ABTEX	0x40		// - not used Abort Extend
+#define	CR4_NRZI	0x80		// - not used NRZI/NRZ
 
 // status register 1
 #define	SR1_RDA		0x01		// Receive data available - set to confirm that two bytes are
-							// available in the receive FIFO data buffer
-#define	SR1_S2RQ		0x02		// - not used Status #2 Read request
-#define	SR1_LOOP		0x04		// - not used Loop
+					// available in the receive FIFO data buffer
+#define	SR1_S2RQ	0x02		// - not used Status #2 Read request
+#define	SR1_LOOP	0x04		// - not used Loop
 #define	SR1_FD		0x08		// - not used Flag Detected (when enabled)
 #define	SR1_CTS		0x10		// Clear to send. This bit reflects the condition of the CTS input.
-							// If enable, a switch of CTS from low to high causes an interrupt.
+					// If enable, a switch of CTS from low to high causes an interrupt.
 #define	SR1_TXU		0x20		// - not used
-#define	SR1_TDRA		0x40		// Tx data register available. This should be read before sending
-							// a byte. When CTS is high, TDRA is deasserted to indicate that
-							// transmission should end.
+#define	SR1_TDRA	0x40		// Tx data register available. This should be read before sending
+					// a byte. When CTS is high, TDRA is deasserted to indicate that
+					// transmission should end.
 #define	SR1_IRQ		0x80		// IRQ. Interrupts are enabled as appropriage to indicate transmit,
-							// receive and error conditions.
+					// receive and error conditions.
 
 // status register 2
 #define	SR2_AP		0x01		// Address present. Set to indicate that the first byte of a packet
-							// is available for reading.
+					// is available for reading.
 #define	SR2_FV		0x02		// Frame valid. Indicates packet received and CRC correct.
-#define	SR2_RXIDLE		0x04		// Receive idle. Set to cause an IRQ after 15 one bits have been 
-							// received.
-#define	SR2_RXABT		0x08		// - not used Abort Received
+#define	SR2_RXIDLE	0x04		// Receive idle. Set to cause an IRQ after 15 one bits have been 
+					// received.
+#define	SR2_RXABT	0x08		// - not used Abort Received
 #define	SR2_ERR		0x10		// - not used FCS Error
 #define	SR2_DCD		0x20		// Data carrier detect. Reflects the DCD input, showing the state
-							// of the clock signal. If enabled, an interrupt is generated if 
-							// the clock fails.
-#define	SR2_OVRN		0x40		// - not used Rx Overun
+					// of the clock signal. If enabled, an interrupt is generated if 
+					// the clock fails.
+#define	SR2_OVRN	0x40		// - not used Rx Overun
 #define	SR2_RDA		0x80		// Receive data available. Used after a receive interrupt to confirm
-							// that the data is acutally ready. Other causes of an interrupt
-							// indicate an error condition.
+					// that the data is acutally ready. Other causes of an interrupt
+					// indicate an error condition.
 
 // initial values for Control Registers
 //#define	CR2val		CR2_PSE //| CR2_TWOBYTE
@@ -122,18 +122,18 @@
 #define egpio_arg		r24
 #define serial_tx_arg		r24
 
-#define zero_reg                r1
+#define zero_reg		r1
 
-.section .text             ; Start program section
+.section .text					; Start program section
 
 addr_setup:
 	cbi	PORTD, ADLC_RS0			; clear RS0 on PORTD
 	cbi	PORTD, ADLC_RS1			; clear RS1 on PORTD
 	sbrc	tmp1, 0				; if bit 0 in the address field is not clear
-	sbi	PORTD, ADLC_RS0			;    set bit 0
+	sbi	PORTD, ADLC_RS0			;	set bit 0
 	sbrc	tmp1, 1				; if bit 1 in the address field is not clear
-	sbi	PORTD, ADLC_RS1			;    set bit 1
-        ret
+	sbi	PORTD, ADLC_RS1			;	set bit 1
+	ret
 
 ; -----------------------------------------------------------------------------------------
 ; ADLC Read
@@ -145,23 +145,23 @@ addr_setup:
 adlc_read_rx:
 	ldi	tmp1, ADLC_RX
 adlc_read:
-        rcall   addr_setup
+	rcall   addr_setup
 	sbi	PORTD, ADLC_RnW			; Read from ADLC
 
-	ldi	tmp1, 0x1				; make sure the ADLC_CLK at PB0 stays set
-	out	DDRB, tmp1				; clear all other lines on PORTB
+	ldi	tmp1, 0x1			; make sure the ADLC_CLK at PB0 stays set
+	out	DDRB, tmp1			; clear all other lines on PORTB
 	cbi	DDRE, ADLC_D0			; clear ADLC_D0 line on PORTE
 	ldi	tmp1, 0xff
 	out	PORTB, tmp1
 	sbi	PORTE, ADLC_D0
 
-        rcall   go_cycle
+	rcall	go_cycle
 
 	bst	tmp1, ADLC_D0			; Store the bit from ADLC_D0 in the T flag
 	bld	tmp2, 0				; load T into bit 0 of tmp2 to leave the byte read in tmp2
 
-	ldi	tmp1, 0xff				; set pins back to output
-	out	DDRB, tmp1				; Port B
+	ldi	tmp1, 0xff			; set pins back to output
+	out	DDRB, tmp1			; Port B
 	sbi	DDRE, ADLC_D0			; ADLC_DO pin on PORT E
 	ret
 
@@ -178,66 +178,66 @@ adlc_write_cr1:
 adlc_write_cr2:	
 	ldi	tmp1, ADLC_CR2
 adlc_write:
-        rcall   addr_setup
+	rcall	addr_setup
 
 	cbi	PORTD, ADLC_RnW			; write to ADLC
 
 	; set the data
-	out	PORTB, tmp2				; put the data on PORT B
+	out	PORTB, tmp2			; put the data on PORT B
 	cbi	PORTE, ADLC_D0			; clear bit 2 on PORT E
 	sbrc	tmp2, 0				; if bit 0 in the data field is not clear
-	sbi	PORTE, ADLC_D0			;    set bit to 1
+	sbi	PORTE, ADLC_D0			;	set bit to 1
 
 go_cycle:
 	clc
 	
-	in	saved_gicr, GICR			; save the contents of the General Interrupt Control Register
-	ldi	r24, (1 << INT1)			; External INT1 enable
+	in	saved_gicr, GICR		; save the contents of the General Interrupt Control Register
+	ldi	r24, (1 << INT1)		; External INT1 enable
 adlc_write_prewait:
-        sbic    PIND, 3
-        rjmp    adlc_write_prewait
-	out	GIFR, r24				; write to the General Interrupt Flag Register
-	out	GICR, r24				; write to the General Interrupt Control Register
+	sbic	PIND, 3
+	rjmp	adlc_write_prewait
+	out	GIFR, r24			; write to the General Interrupt Flag Register
+	out	GICR, r24			; write to the General Interrupt Control Register
 
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
 
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
 
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
 
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
 
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
 
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
 
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
 
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
-        brcs    adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
+	brcs	adlc_write_done
 
 adlc_write_done:
 	ret
@@ -254,19 +254,19 @@ __vector_2:
 	rjmp	1f
 1:	rjmp	1f
 1:	nop	
-	in	tmp2, PINB				; read PortB to tmp2
-	in	tmp1, PINE				; read PortE to tmp1
+	in	tmp2, PINB			; read PortB to tmp2
+	in	tmp1, PINE			; read PortE to tmp1
 	nop
 	sbi	PORTE, ADLC_nCE			; set ADLC_nCE to flag read completed
-	out	GICR, saved_gicr			; restore the contents of the Global Interrupt Control Register
-	sec						; set carry to flag interrupt is handled
-	reti						; return from interrupt
+	out	GICR, saved_gicr		; restore the contents of the Global Interrupt Control Register
+	sec					; set carry to flag interrupt is handled
+	reti					; return from interrupt
 
-	.globl	adlc_await_idle
+.global	adlc_await_idle
 adlc_await_idle:
 	; switch to 1-byte mode, no PSE
 	ldi	tmp2, CR2_CLRRX
-	rcall	adlc_write_cr2				; write to Control Register
+	rcall	adlc_write_cr2			; write to Control Register
 
 idle_wait_loop:	
 	ldi	tmp1, ADLC_SR2
@@ -325,12 +325,12 @@ await_tdra:
 	rjmp	abandon_tx
 
 got_tdra:
-      cpi	r22, 0
-      brne	not_data
-      dec	r23
+	cpi	r22, 0
 	brne	not_data
-      adiw	YL, 2
-      subi	r21, 2
+	dec	r23
+	brne	not_data
+	adiw	YL, 2
+	subi	r21, 2
 	
 not_data:
 	ld	tmp2, Y+
@@ -391,7 +391,7 @@ not_end:
 ;
 rx_overrun:
 	ldi	serial_tx_arg, 0x6F		; "o" - overrun
-	rcall serial_tx
+	rcall	serial_tx
 	rcall	adlc_ready_to_receive_scout
 	rjmp	adlc_irq_ret
 	
@@ -444,10 +444,10 @@ process_idle:
 ;
 .global __vector_1
 __vector_1:	
-	push	r24					; save register values to the stack
+	push	r24				; save register values to the stack
 	push	tmp1
 	push	tmp2
-	in	tmp1, SREG				; Save the status register
+	in	tmp1, SREG			; Save the status register
 	push	tmp1
 	push	XH
 	push	XL
@@ -458,7 +458,7 @@ __vector_1:
 
 process_s2rq:	
 	ldi	tmp1, ADLC_SR2			; set address to Status Register2
-	rcall	adlc_read				; read Status Register2
+	rcall	adlc_read			; read Status Register2
 
 	bst	tmp2, 0				; 1 ;AP: Address Present?
 	brbs	6, process_ap			;   ;yes
@@ -488,9 +488,9 @@ process_s2rq:
 process_fv:
 	rcall	adlc_rx_flush			; clear remaining bytes in the input buffer
 
-      mov	tmp1, adlc_state
-      ori	tmp1, FRAME_COMPLETE
-	mov	adlc_state, tmp1			; set ADLC state to FRAME COMPLETE
+	mov	tmp1, adlc_state
+	ori	tmp1, FRAME_COMPLETE
+	mov	adlc_state, tmp1		; set ADLC state to FRAME COMPLETE
 
 	rjmp	adlc_irq_ret			; return from interrupt
 
@@ -520,7 +520,7 @@ process_ap:
 	; Read 1 byte to the buffer
 	rcall	adlc_read_rx			; read ADLC, tmp2 = data read
 
-	st	X+, tmp2				; store the data read in the Rx buffer
+	st	X+, tmp2			; store the data read in the Rx buffer
 
 	movw	adlc_rx_ptr_lo, XL
 
@@ -548,11 +548,11 @@ process_rda:
 
 	; 1st byte
 	rcall	adlc_read_rx			; read ADLC, tmp2 = data read
-	st	X+, tmp2				; store the data read in the Rx buffer
+	st	X+, tmp2			; store the data read in the Rx buffer
 
 	; 2nd byte
 	rcall	adlc_read_rx			; read ADLC, tmp2 = data read
-	st	X+, tmp2				; store the data read in the Rx buffer
+	st	X+, tmp2			; store the data read in the Rx buffer
 
 	movw	adlc_rx_ptr_lo, XL
 
@@ -622,25 +622,25 @@ adlc_rx_flush:
 
 	; read SR2
 	ldi	tmp1, ADLC_SR2			; read Status Register 2
-	rcall	adlc_read				; read Satus Register into tmp2
+	rcall	adlc_read			; read Satus Register into tmp2
 
 	;if there is a byte to read, read it first before clearing
 	
 	bst	tmp2, 7				; RDA? is receive data available
-	brbc	6, no_rda				; no
+	brbc	6, no_rda			; no
 
 	movw	XL, adlc_rx_ptr_lo
 
 	; Read 1 byte to the buffer
 	rcall	adlc_read_rx			; read ADLC, tmp2 = data read
 
-	st	X+, tmp2				; store the data read in the Rx buffer
+	st	X+, tmp2			; store the data read in the Rx buffer
 
 	movw	adlc_rx_ptr_lo, XL
 
 no_rda:
 	ldi	tmp2, CR2_FLAGIDLE | CR2_RTS | CR2_CLRRX | CR2_PSE | CR2_TWOBYTE
-	rjmp	adlc_write_cr2				; write to Control Register
+	rjmp	adlc_write_cr2			; write to Control Register
 
 
 ; -----------------------------------------------------------------------------------------
@@ -663,14 +663,14 @@ adlc_irq_ret:
 	pop	XL
 	pop	XH
 	
-	ldi	r24, (1 << INT0)			; restore the interrupt flag
+	ldi	r24, (1 << INT0)		; restore the interrupt flag
 	out	GICR, r24
- 	pop	tmp1					; restore Status register from the Stack
+ 	pop	tmp1				; restore Status register from the Stack
 	out	SREG, tmp1		
-	pop	tmp2					; restore other registers from the Stack
+	pop	tmp2				; restore other registers from the Stack
 	pop	tmp1
 	pop	r24
-	reti						; return from interrupt
+	reti					; return from interrupt
 
 init_rx_buf:	
 	; initialise the Rx Buffer pointer
@@ -712,9 +712,9 @@ adlc_init:
 	rcall	adlc_write
 
 	; set the initial values of Control Register 3 (CR1_AC previously set)
-	clr	tmp2					; Set initial value to 0
+	clr	tmp2				; Set initial value to 0
 	ldi	tmp1, ADLC_CR3			; set to ADLC Control Register 3
-	rcall	adlc_write				; write to ADLC
+	rcall	adlc_write			; write to ADLC
 
 	; set the initial values of Control Register 4
 	ldi	tmp2, CR4_TXWLS | CR4_RXWLS	; Set Tx & Rx Word lengths to 8 bits
@@ -731,8 +731,8 @@ adlc_init:
 ; -----------------------------------------------------------------------------------------
 ;
 ; exit	: adlc_state = 0
-; 		: adlc_rx_ptr    = ECONET RX Buffer LSB
-; 		: adlc_rx_ptr + 1    = ECONET RX Buffer MSB
+; 	: adlc_rx_ptr	= ECONET RX Buffer LSB
+; 	: adlc_rx_ptr + 1	= ECONET RX Buffer MSB
 
 .global	adlc_ready_to_receive_scout
 adlc_ready_to_receive_scout:
@@ -745,7 +745,7 @@ adlc_ready_to_receive:
 
 	rcall	init_rx_buf
 
-	ldi	tmp2, CR1_TXRESET			; reset tx, unreset rx
+	ldi	tmp2, CR1_TXRESET		; reset tx, unreset rx
 	rcall	adlc_write_cr1			; write to the ADLC
 
 	ldi	tmp2, CR2val			; Status bit prioritised
@@ -763,7 +763,7 @@ adlc_ready_to_receive:
 ;
 ;  entry: tmp1=network number
 ;  exit:  C set -> do want this frame
-;         Z set -> don't want this frame
+;	  Z set -> don't want this frame
 ;	  C,Z both clear -> need to check station number too 
 
 interesting_network:
