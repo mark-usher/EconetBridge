@@ -1,0 +1,30 @@
+$Revision: 1.1 $
+
+AVR-NTP
+-------
+
+A simple standalone SNTP server for AVR microcontrollers.
+
+To build:
+
+You will need the avrlib tools on your path.
+
+> tar xvzf avr-ntp.tgz
+> cd avr-ntp
+> make
+
+The target type is specified in Makefile.avr and is currently atmega8535.
+
+Files are built in the obj-unix and obj-avr subdirectories.
+
+In obj-avr:
+
+avrntp.hex: Hex image for server
+testtimer.hex: Hex image for timer test
+
+In obj-unix:
+
+avrntp: Standalone test program
+
+Web: http://www.users.globanet.co.uk/~arcus/avr-ntp/
+

@@ -1,0 +1,39 @@
+# $Revision:$
+
+EXES = avrntp testntp1 testntp2 monitor
+ 
+all: ${EXES}
+avrntp: avrntp.o date.o utils.o rxtx.o unixtarget.o unixdate.o
+monitor: monitor.o
+testntp1: testntp1.o date.o unixdate.o
+testntp2: testntp2.o date.o unixdate.o
+
+# Generic stuff after here
+CC 	 = gcc
+
+OPTIMIZE = -O2
+DEFS 	 =
+LIBS	 = -lm
+
+CFLAGS = -ansi -g -Wall -MMD $(OPTIMIZE) $(DEFS)
+LDFLAGS =
+
+vpath %.c ..
+vpath %.h ..
+
+-include *.d
+
+$(EXES):
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ ${LIBS}
+
+%.o: %.c
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+clean:
+	rm -f ${EXES}
+	rm -f *.o *.d
+
+purge:	clean
+	rm -f *~
+
+.PHONY: all clean purge

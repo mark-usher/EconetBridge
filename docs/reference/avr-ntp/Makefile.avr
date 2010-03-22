@@ -1,0 +1,70 @@
+# $Revision:$
+
+all: avrntp.hex testtimer.hex
+
+# Extra dependencies for .elf targets here
+
+avrntp.elf: avrtarget.o utils.o rxtx.o date.o timer.o
+testtimer.elf: date.o
+
+MCU_TARGET     = atmega8535
+#MCU_TARGET     = at90s2313
+#MCU_TARGET     = atmega8
+#MCU_TARGET     = atmega48
+
+OPTIMIZE       = -Os
+DEFS           = -DAVR
+LIBS           =
+
+CC             = avr-gcc
+
+CFLAGS        = -MMD -ansi -Wall $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS)
+LDFLAGS       = -Wl,-Map,$(PRG).map
+
+OBJCOPY        = avr-objcopy
+OBJDUMP        = avr-objdump
+
+vpath %.c ..
+vpath %.h ..
+
+-include *.d
+
+%.elf: %.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+%.S: %.c
+	$(CC) $(CFLAGS) -S -o $@ $<
+
+%.lst: %.elf
+	$(OBJDUMP) -h -S $< > $@
+
+# Rules for building the .text rom images
+
+%.hex: %.elf
+	$(OBJCOPY) -j .text -j .data -O ihex $< $@
+
+%.srec: %.elf
+	$(OBJCOPY) -j .text -j .data -O srec $< $@
+
+%.bin: %.elf
+	$(OBJCOPY) -j .text -j .data -O binary $< $@
+
+# Rules for building the .eeprom rom images
+
+%_eeprom.hex: %.elf
+	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O ihex $< $@
+
+%_eeprom.srec: %.elf
+	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O srec $< $@
+
+%_eeprom.bin: %.elf
+	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O binary $< $@
+
+clean:
+	rm -rf *.o *.d *.elf *.eps *.png *.pdf *.bak *.S
+	rm -rf *.lst *.map *.bin *.hex *.srec
+
+.PHONY: all clean
