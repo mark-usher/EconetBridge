@@ -37,7 +37,7 @@ MCU = atmega162
 FORMAT = ihex 
 
 # Target file name (without extension).
-TARGET = AVRuIP
+TARGET = ecobridge
 
 
 # APPS to include
