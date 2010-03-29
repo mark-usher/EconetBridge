@@ -97,16 +97,15 @@
    setting UIP_FIXEDADDR to 1 in uipopt.h), the address is set
    here. Otherwise, the address */
 #if UIP_FIXEDADDR > 0
-const uip_ipaddr_t uip_hostaddr = { HTONS ((UIP_IPADDR0 << 8) | UIP_IPADDR1),
-  HTONS ((UIP_IPADDR2 << 8) | UIP_IPADDR3)
-};
+const uip_ipaddr_t uip_hostaddr =
+  {HTONS((UIP_IPADDR0 << 8) | UIP_IPADDR1),
+   HTONS((UIP_IPADDR2 << 8) | UIP_IPADDR3)};
 const uip_ipaddr_t uip_draddr =
-  { HTONS ((UIP_DRIPADDR0 << 8) | UIP_DRIPADDR1),
-  HTONS ((UIP_DRIPADDR2 << 8) | UIP_DRIPADDR3)
-};
-const uip_ipaddr_t uip_netmask = { HTONS ((UIP_NETMASK0 << 8) | UIP_NETMASK1),
-  HTONS ((UIP_NETMASK2 << 8) | UIP_NETMASK3)
-};
+  {HTONS((UIP_DRIPADDR0 << 8) | UIP_DRIPADDR1),
+   HTONS((UIP_DRIPADDR2 << 8) | UIP_DRIPADDR3)};
+const uip_ipaddr_t uip_netmask =
+  {HTONS((UIP_NETMASK0 << 8) | UIP_NETMASK1),
+   HTONS((UIP_NETMASK2 << 8) | UIP_NETMASK3)};
 #else
 //uip_ipaddr_t uip_hostaddr, uip_draddr, uip_netmask;
 uip_ipaddr_t uip_hostaddr, uip_draddr, uip_netmask, uip_tempaddr;
@@ -115,28 +114,27 @@ uip_ipaddr_t uip_hostaddr, uip_draddr, uip_netmask, uip_tempaddr;
 
 static const uip_ipaddr_t all_ones_addr =
 #if UIP_CONF_IPV6
-{ 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff };
-#else				/* UIP_CONF_IPV6 */
-{ 0xffff, 0xffff };
+  {0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff};
+#else /* UIP_CONF_IPV6 */
+  {0xffff,0xffff};
 #endif /* UIP_CONF_IPV6 */
 static const uip_ipaddr_t all_zeroes_addr =
 #if UIP_CONF_IPV6
-{ 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000 };
-#else				/* UIP_CONF_IPV6 */
-{ 0x0000, 0x0000 };
+  {0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000};
+#else /* UIP_CONF_IPV6 */
+  {0x0000,0x0000};
 #endif /* UIP_CONF_IPV6 */
 
 #include "eeprom.h"
 #include <avr/eeprom.h>
 
 #if UIP_FIXEDETHADDR
-const struct uip_eth_addr uip_ethaddr = { {UIP_ETHADDR0,
-					   UIP_ETHADDR1,
-					   UIP_ETHADDR2,
-					   UIP_ETHADDR3,
-					   UIP_ETHADDR4,
-					   UIP_ETHADDR5}
-};
+const struct uip_eth_addr uip_ethaddr = {{UIP_ETHADDR0,
+					  UIP_ETHADDR1,
+					  UIP_ETHADDR2,
+					  UIP_ETHADDR3,
+					  UIP_ETHADDR4,
+					  UIP_ETHADDR5}};
 #else
 struct uip_eth_addr uip_ethaddr;
 #endif
@@ -184,11 +182,7 @@ static u16_t ipid;		/* Ths ipid variable is an increasing
 				   number that is used for the IP ID
 				   field. */
 
-void
-uip_setipid (u16_t id)
-{
-  ipid = id;
-}
+void uip_setipid(u16_t id) { ipid = id; }
 
 static u8_t iss[4];		/* The iss variable is used for the TCP
 				   initial sequence number. */
@@ -253,6 +247,7 @@ void uip_log (char *msg);
 #define UIP_LOG(m) uip_log(m)
 #else
 #define UIP_LOG(m)
+//#define UIP_LOG(msg) { serial_tx_str(msg); serial_crlf(); }
 #endif /* UIP_LOGGING == 1 */
 
 #if ! UIP_ARCH_ADD32
@@ -441,45 +436,37 @@ uip_connect (uip_ipaddr_t * ripaddr, u16_t rport)
 again:
   ++lastport;
 
-  if (lastport >= 32000)
-    {
-      lastport = 4096;
-    }
+  if(lastport >= 32000) {
+    lastport = 4096;
+  }
 
   /* Check if this port is already in use, and if so try to find
      another one. */
-  for (c = 0; c < UIP_CONNS; ++c)
-    {
-      conn = &uip_conns[c];
-      if (conn->tcpstateflags != UIP_CLOSED &&
-	  conn->lport == htons (lastport))
-	{
-	  goto again;
-	}
+  for(c = 0; c < UIP_CONNS; ++c) {
+    conn = &uip_conns[c];
+    if(conn->tcpstateflags != UIP_CLOSED &&
+       conn->lport == htons(lastport)) {
+      goto again;
     }
 
   conn = 0;
-  for (c = 0; c < UIP_CONNS; ++c)
-    {
-      cconn = &uip_conns[c];
-      if (cconn->tcpstateflags == UIP_CLOSED)
-	{
-	  conn = cconn;
-	  break;
-	}
-      if (cconn->tcpstateflags == UIP_TIME_WAIT)
-	{
-	  if (conn == 0 || cconn->timer > conn->timer)
-	    {
-	      conn = cconn;
-	    }
-	}
+  for(c = 0; c < UIP_CONNS; ++c) {
+    cconn = &uip_conns[c];
+    if(cconn->tcpstateflags == UIP_CLOSED) {
+      conn = cconn;
+      break;
     }
+    if(cconn->tcpstateflags == UIP_TIME_WAIT) {
+      if(conn == 0 ||
+	 cconn->timer > conn->timer) {
+	conn = cconn;
+      }
+    }
+  }
 
-  if (conn == 0)
-    {
-      return 0;
-    }
+  if(conn == 0) {
+    return 0;
+  }
 
   conn->tcpstateflags = UIP_SYN_SENT;
 
@@ -673,39 +660,34 @@ uip_reass (void)
 	    ~bitmap_bits[((offset + len) / 8) & 7];
 	}
 
-      /* If this fragment has the More Fragments flag set to zero, we
-         know that this is the last fragment, so we can calculate the
-         size of the entire packet. We also set the
-         IP_REASS_FLAG_LASTFRAG flag to indicate that we have received
-         the final fragment. */
+    /* If this fragment has the More Fragments flag set to zero, we
+       know that this is the last fragment, so we can calculate the
+       size of the entire packet. We also set the
+       IP_REASS_FLAG_LASTFRAG flag to indicate that we have received
+       the final fragment. */
 
-      if ((BUF->ipoffset[0] & IP_MF) == 0)
-	{
-	  uip_reassflags |= UIP_REASS_FLAG_LASTFRAG;
-	  uip_reasslen = offset + len;
+    if((BUF->ipoffset[0] & IP_MF) == 0) {
+      uip_reassflags |= UIP_REASS_FLAG_LASTFRAG;
+      uip_reasslen = offset + len;
+    }
+
+    /* Finally, we check if we have a full packet in the buffer. We do
+       this by checking if we have the last fragment and if all bits
+       in the bitmap are set. */
+    if(uip_reassflags & UIP_REASS_FLAG_LASTFRAG) {
+      /* Check all bytes up to and including all but the last byte in
+	 the bitmap. */
+      for(i = 0; i < uip_reasslen / (8 * 8) - 1; ++i) {
+	if(uip_reassbitmap[i] != 0xff) {
+	  goto nullreturn;
 	}
-
-      /* Finally, we check if we have a full packet in the buffer. We do
-         this by checking if we have the last fragment and if all bits
-         in the bitmap are set. */
-      if (uip_reassflags & UIP_REASS_FLAG_LASTFRAG)
-	{
-	  /* Check all bytes up to and including all but the last byte in
-	     the bitmap. */
-	  for (i = 0; i < uip_reasslen / (8 * 8) - 1; ++i)
-	    {
-	      if (uip_reassbitmap[i] != 0xff)
-		{
-		  goto nullreturn;
-		}
-	    }
-	  /* Check the last byte in the bitmap. It should contain just the
-	     right amount of bits. */
-	  if (uip_reassbitmap[uip_reasslen / (8 * 8)] !=
-	      (u8_t) ~ bitmap_bits[uip_reasslen / 8 & 7])
-	    {
-	      goto nullreturn;
-	    }
+      }
+      /* Check the last byte in the bitmap. It should contain just the
+	 right amount of bits. */
+      if(uip_reassbitmap[uip_reasslen / (8 * 8)] !=
+	 (u8_t)~bitmap_bits[uip_reasslen / 8 & 7]) {
+	goto nullreturn;
+      }
 
 	  /* If we have come this far, we have a full packet in the
 	     buffer, so we allocate a pbuf and copy the packet into it. We
@@ -1208,13 +1190,17 @@ icmp_input:
 #if UIP_UDP
   /* UDP input processing. */
 udp_input:
+
   /* UDP processing is really just a hack. We don't do anything to the
      UDP/IP headers, but let the UDP application do all the hard
      work. If the application sets uip_slen, it has a packet to
      send. */
+
 #if UIP_UDP_CHECKSUMS
+
   uip_len = uip_len - UIP_IPUDPH_LEN;
   uip_appdata = &uip_buf[UIP_LLH_LEN + UIP_IPUDPH_LEN];
+
   if (UDPBUF->udpchksum != 0 && uip_udpchksum () != 0xffff)
     {
       UIP_STAT (++uip_stat.udp.drop);
@@ -1270,7 +1256,8 @@ udp_found:
   uip_slen = 0;
   UIP_UDP_APPCALL ();
 udp_send:
-  if (uip_slen == 0)
+
+  if (uip_slen == 0)		// length of data to send
     {
       goto drop;
     }

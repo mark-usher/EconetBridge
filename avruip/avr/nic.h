@@ -27,13 +27,16 @@
 
 #define NIC_CHOICE CS8900
 
+// used in nic.c as a temporary copy of the header info
+
 struct frag_mbuf
 {
   struct mbuf *next, *prev;
   uint8_t length;
   uint8_t pad;
-  uint8_t data[UIP_IPH_LEN + UIP_LLH_LEN + 8];
+  uint8_t data[UIP_LLH_LEN + UIP_IPH_LEN + 8];
 };
+
 
 struct mbuf *uip_to_mbufs (void);
 

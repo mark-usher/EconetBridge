@@ -179,9 +179,8 @@ forward_to_econet (void)
       struct arp_entry *arp = find_arp_entry (IPBUF->destipaddr);
       if (arp)
 	{
-	  struct mbuf *mb =
-	    copy_to_mbufs (uip_buf + UIP_LLH_LEN - 6,
-			   uip_len - UIP_LLH_LEN + 6);
+	  struct mbuf *mb = copy_to_mbufs (uip_buf + UIP_LLH_LEN - 6,
+					   uip_len - UIP_LLH_LEN + 6);
 	  mb->data[0] = arp->ethaddr.addr[0];
 	  mb->data[1] = arp->ethaddr.addr[1];
 	  mb->data[4] = EcCb_ARP;

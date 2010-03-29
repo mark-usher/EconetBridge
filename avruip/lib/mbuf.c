@@ -128,9 +128,8 @@ copy_to_mbufs (uint8_t * buffer, uint16_t length)
       if (m == NULL)		// if no more mbufs are available whilst copying
 	{			// clear the chain
 	  // Out of memory
-	  mbuf_free_chain (first);
-	  			// sends chain to be cleared
-	    return NULL;
+	  mbuf_free_chain (first);			// sends chain to be cleared
+	  return NULL;
 	}
 
       if (first == NULL)	// first mbuf in chain?
@@ -146,10 +145,11 @@ copy_to_mbufs (uint8_t * buffer, uint16_t length)
       last = m;			// set this as the last one in the chain
 
       uint8_t to_copy = MBUF_SIZE;	// set length to the max data length
-      if (to_copy > length)	// is more data than 1 buffer?
+      if (to_copy > length)	// will the data fit in 1 mbuf?
 	to_copy = length;	// yes, then set to data length
 
       memcpy (m->data, buffer, to_copy);	// copy the data in the buffer to the mbuf
+
       m->length = to_copy;	// set the length of data in the mbuf
       buffer += to_copy;	// increase the buffer pointer start by amount copied
       length -= to_copy;	// set the amount of data still to copy
