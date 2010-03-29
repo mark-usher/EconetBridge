@@ -1,3 +1,22 @@
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup ADLC ADLC_ wrapper
+ * @{
+ *
+ * AUN Ethernet packet processing
+ */
+
+/**
+ * \file
+ *         ADLC driver
+ * \author
+ *         Phil Blundel
+ */
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -10,52 +29,42 @@
 #include "internet.h"
 #include "bridge.h"
 
-#define BUF ((struct uip_tcpip_hdr *)&uip_buf[UIP_LLH_LEN])
 
-#define MAX_TX			8
-#define ADLC_TX_RETRY_COUNT	16
-#define ADLC_TX_RETRY_DELAY	128
+//#define DEBUGtx 1
+//#define DEBUGrx 1
 
-#define ECONET_DATA_FRAME	0x00
-#define SCOUT_FRAME		0x01
-
-#define NORMAL_PACKET		0
-#define BROADCAST			1
-#define IMMEDIATE			2
-
-#define NO_BUFFER			0xFF
-
-#define DEBUG 			1
 
 unsigned char ECONET_RX_BUF[ECONET_RX_BUF_SIZE];
 volatile register unsigned char adlc_state asm ("r15");
 
-static struct stats stats;
-
-/*---- Set up an array of transmit records ----*/
-struct tx_record tx_buf[MAX_TX];
-
+/*---- Variables -----------------------------------------------------------*/
+static struct stats stats;	// Structure for network statistics
 static struct scout_mbuf scout_mbuf;
 
-extern uint16_t get_adlc_rx_ptr (void);
+static uint8_t aun_cb;
+static uint8_t aun_port;
 
+static uip_ipaddr_t ip_target;
+
+struct tx_record tx_buf[MAX_TX];	// Set up an array of transmit records
+
+/*---- Import external functions -------------------------------------------*/
+
+extern uint16_t get_adlc_rx_ptr (void);
 extern uint8_t get_adlc_state (void);
 extern uint8_t adlc_await_idle (void);
 extern void adlc_tx_frame (struct mbuf *mb, unsigned char type);
 
-static uip_ipaddr_t ip_target;
-static uint8_t aun_cb, aun_port;
 
-
-/*******************************************************************
+/*****************************************************************************
 *
-* NAME : get_tx_buf           
+* NAME        :	get_tx_buf           
 *
-* DESCRIPTION :
+* DESCRIPTION : An array of Tx_Records is held in Tx_Buf[MAX_TX]. Currently 8. 
 *
-* INPUTS : Nothing
+* INPUTS      :	Nothing
 *
-* OUTPUTS : counter of tx_buf
+* OUTPUTS     :	Returns the index of the first free Tx_Record, else NO_BUFFER
 *
 * NOTES :   
 *
@@ -64,7 +73,8 @@ static uint8_t aun_cb, aun_port;
 *
 */
 
-static uint8_t get_tx_buf (void)
+static uint8_t
+get_tx_buf (void)
 {
   uint8_t i;
   for (i = 0; i < MAX_TX; i++)
@@ -75,18 +85,18 @@ static uint8_t get_tx_buf (void)
   return NO_BUFFER;
 }
 
-/******************************************************************************
+/*****************************************************************************
 *
-* NAME	: do_tx_packet          
+* NAME	      : do_tx_packet          
 *
 * DESCRIPTION : Send a data packet on the Econet network. This is passed by a 
-*			pointer to a tx_record. A scout packet is created and sent.
+*		pointer to a tx_record. A scout packet is created and sent.
 *
-* INPUTS	: Pointer to a tx_record
+* INPUTS      :	Pointer to a tx_record
 *
-* OUTPUTS	: counter of do_tx_packet
+* OUTPUTS     :	counter of do_tx_packet
 *
-* NOTES	:   
+* NOTES	      :   
 *
 * CHANGES	:
 * REF NO	DATE		WHO	DETAIL
@@ -95,26 +105,28 @@ static uint8_t get_tx_buf (void)
 
 static uint8_t do_tx_packet (struct tx_record *tx) __attribute__ ((noinline));
 
-static uint8_t do_tx_packet (struct tx_record *tx)
+static uint8_t
+do_tx_packet (struct tx_record *tx)
 {
-  unsigned char *buf = tx->mb->data;
-  unsigned char type = NORMAL_PACKET;
+  struct Econet_Header *eh = tx->mb->data;
 
-/*---- set the tx type to BROADCAST or IMMEDIATE  ---------------------------*/
+/*---- set the tx type to BROADCAST or IMMEDIATE or NORMAL_PACKET ----*/
 
-  if (buf[0] == ANY_NETWORK)
+  unsigned char type = NORMAL_PACKET;	// default value
+
+  if (eh->DNET == ANY_NETWORK)
     type = BROADCAST;
-  else if (buf[5] == 0)
+  else if (eh->PORT == IMMEDIATE_PORT)
     type = IMMEDIATE;
 
-  stats.tx_attempts++;					// update tx stats
+  stats.tx_attempts++;		// update tx stats
 
 /*---- wait for Econet to become idle ----*/
 
   if (adlc_await_idle ())
     {
-      stats.tx_line_jammed++;				// update line jammed stats
-      return LINE_JAMMED;				// return status LINE_JAMMED
+      stats.tx_line_jammed++;	// update line jammed stats
+      return LINE_JAMMED;	// return status LINE_JAMMED
     }
 
 /* if it is a BROADCAST Tx, transmit a scout frame, await a reply ----
@@ -124,41 +136,34 @@ static uint8_t do_tx_packet (struct tx_record *tx)
   if (type == BROADCAST)
     {
       adlc_tx_frame (tx->mb, SCOUT_FRAME);	// transmit a scout frame
-      adlc_ready_to_receive_scout ();		// receive a scout frame
-      return TX_OK;					// return status Tx OK
-    }								// END type == BROADCAST
-
+      adlc_ready_to_receive_scout ();	// receive a scout frame
+      return TX_OK;		// return status Tx OK
+    }				// END type == BROADCAST
 
 /*---- handle IMMEDIATE Tx packets  ----*/
 
-  uint8_t extra_len = 0, do_4way = 0;		// Set up extra_length & 4way handshake flag
+  uint8_t extra_len = 0, do_4way = 0;	// Set up extra_length & 
+  // 4way handshake flag
 
   // immediate OP with length>=14 has 8 extra bytes
-  // also control byte 2 POKE, 3 JSR, 4 UPC, 5 ??? requires a 4 way handshake
-  
+  // immediate OP 2 POKE, 3 JSR, 4 UPC, 5 Remote OP
+  // all require a 4 way handshake
+
   if (type == IMMEDIATE && tx->mb->length >= 14)
-    {								
+    {
       extra_len = 8;					// set the extra packet length
-      uint8_t cb = buf[4] & RXCB;			// get the Control Byte & RXCB (removes the top bit)
-      if (cb >= Econet_Peek && cb <= Econet_Imm05)			// Poke, JSR, UPC or 5?
+      uint8_t cb = eh->CB & RXCB;			// get the Control Byte holding the immediate op 
+      							// & RXCB (removes the top bit) to match definitions
+
+      if (cb >= ECONET_POKE && cb <= ECONET_OS_RPC)	// Poke, JSR, UPC or OS RPC?
 	do_4way = 1;					// set 4way handshake flag
     }
 
   memcpy (scout_mbuf.data, tx->mb->data, 6 + extra_len);
   scout_mbuf.length = 6 + extra_len;
-
-/*
-#ifdef DEBUG
-  serial_tx_str ("eco2");
-  serial_tx_str ("tx ");
-  serial_packet (&scout_mbuf.data, scout_mbuf.length);
-
-#endif
-*/
-
   adlc_tx_frame ((struct mbuf *) &scout_mbuf, SCOUT_FRAME);	// transmit a scout frame
 
-
+  // wait for a scout ack
   unsigned char state;
   do
     {
@@ -179,22 +184,17 @@ static uint8_t do_tx_packet (struct tx_record *tx)
       memcpy (scout_mbuf.data + 4, mb->data + 14, mb->length - 14);
       scout_mbuf.length = mb->length - 10;
       scout_mbuf.next = mb->next;
-      mb = (struct mbuf *)&scout_mbuf;
+      mb = (struct mbuf *) &scout_mbuf;
     }
+
+/*---- handle NORMAL_PACKET type Tx packets  ----*/
 
   if (type == NORMAL_PACKET || do_4way)
     {
 
-/*
-#ifdef DEBUG
-      serial_tx_str ("eco3");
-      serial_tx_str ("tx ");
-      serial_packet (mb->data, scout_mbuf.length);
-#endif
-*/
-      adlc_tx_frame (mb, ECONET_DATA_FRAME);
+     adlc_tx_frame (mb, ECONET_DATA_FRAME);	// send the data frame
 
-      do
+     do
 	{
 	  state = get_adlc_state ();
 	}
@@ -203,12 +203,35 @@ static uint8_t do_tx_packet (struct tx_record *tx)
 
   scout_mbuf.next = NULL;
 
+
+/*---- handle IMMEDIATE type Tx packets  ----*/
+
   if (type == IMMEDIATE && state != RX_IDLE)
     {
       uint16_t frame_length = get_adlc_rx_ptr () - (int) ECONET_RX_BUF;
+
       if (frame_length > 4)
 	{
-	  tx->r_mb = copy_to_mbufs (ECONET_RX_BUF + 4, frame_length - 4);
+//        tx->r_mb = copy_to_mbufs (ECONET_RX_BUF + 4, frame_length - 4);
+
+	  // forward packet to AUN
+          struct mns_msg *ah = (struct mns_msg *) (uip_appdata);
+
+	  ah->mns_handle = tx->requestor_handle;	// restore handle
+
+	  // copy the previous header info from the ethernet immediate op being
+	  // passed to econet, so that the operation and packet number is replied to
+
+	  // copy data from Econet Buffer to Ethernet packet after the AUN header
+	  memcpy (&uip_buf[UIP_LLH_LEN + UIP_IPUDPH_LEN + AUNHDRSIZE],
+		  ECONET_RX_BUF + 4, frame_length - 4);
+
+	  // creates an easy link to retrieve the source / destination address
+	  struct scout_packet *s = (struct scout_packet *) ECONET_RX_BUF;
+
+	  // forward data to AUN
+	  aun_send_immediate (tx->cb, IMMEDIATE_PORT, s, frame_length - 4, IMMEDIATE_OP_REPLY);	
+
 	}
     }
 
@@ -217,17 +240,19 @@ static uint8_t do_tx_packet (struct tx_record *tx)
   return ((state & 0xf) == FRAME_COMPLETE) ? TX_OK : NET_ERROR;
 }
 
-/******************************************************************************
+/*****************************************************************************
 *
-* NAME :            
+* NAME        : enqueue_tx           
 *
-* DESCRIPTION :
+* DESCRIPTION : Requests a tx_record. If one is available, it is initialised 
+*		with the default settings and the memory buffer passed to the 
+*		function.
 *
-* INPUTS : Pointer to a mbuf
+* INPUTS      : Pointer to the mbuf to be queued for Tx.
 *
-* OUTPUTS :
+* OUTPUTS     : index of tx_record allocated +1, else 0
 *
-* NOTES :   
+* NOTES       :   
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -237,35 +262,38 @@ static uint8_t do_tx_packet (struct tx_record *tx)
 uint8_t
 enqueue_tx (struct mbuf * mb)
 {
-  uint8_t i = get_tx_buf ();
-  if (i != NO_BUFFER)
+  uint8_t i = get_tx_buf ();	// index to a tx_record
+
+  if (i != NO_BUFFER)		// was a tx_record available for use?
     {
-      struct tx_record *tx = &tx_buf[i];
+      struct tx_record *tx = &tx_buf[i];	// set up the tx_record
       tx->retry_count = ADLC_TX_RETRY_COUNT;
       tx->retry_timer = 0;
-      tx->mb = mb;
+      tx->mb = mb;		// set the memory buffer to transmit
       tx->is_aun = 0;
-      return i + 1;
+      return i + 1;		// return tx_record index+1
     }
-
-#ifdef DEBUG
-  serial_tx_str ("no bufs!\n");
+  else
+    {
+#ifdef DEBUGtx
+      serial_tx_str ("no bufs!\n");
 #endif
+    }
 
   return 0;
 }
 
-/*******************************************************************
+/*****************************************************************************
 *
-* NAME :            
+* NAME        :	enqueue_aun_tx          
 *
 * DESCRIPTION :
 *
-* INPUTS : Pointer to a mbuf, Pointer to a TCP/IP header, handle
+* INPUTS      :	Pointer to a mbuf, Pointer to a TCP/IP header, handle
 *
-* OUTPUTS :
+* OUTPUTS     : return tx_record index+1
 *
-* NOTES :   
+* NOTES       :   
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -273,67 +301,71 @@ enqueue_tx (struct mbuf * mb)
 */
 
 uint8_t
-enqueue_aun_tx (struct mbuf * mb, struct uip_tcpip_hdr * hdr, uint32_t handle)
+enqueue_aun_tx (struct mbuf * mb, struct uip_tcpip_hdr * hdr, uint32_t handle, uint8_t cb)
 {
-  uint8_t i = enqueue_tx (mb);
+
+  uint8_t i = enqueue_tx (mb);	// add mbuf to a tx_record
+
   if (i)
     {
-      struct tx_record *tx = &tx_buf[i - 1];
-      tx->is_aun = 1;
-      tx->requestor_handle = handle;
-      uip_ipaddr_copy (tx->requestor_ip, hdr->srcipaddr);
-      uip_ipaddr_copy (tx->target_ip, hdr->destipaddr);
-      tx->retry_count = 0;
+      struct tx_record *tx = &tx_buf[i - 1];	// get pointer to the tx_record
+      tx->is_aun = 1;			// set AUN
+      tx->requestor_handle = handle;	// save handle
+      tx->cb = cb;			// save control byte incase immediate op
+      uip_ipaddr_copy (tx->requestor_ip, hdr->srcipaddr);	// save source ip
+      uip_ipaddr_copy (tx->target_ip, hdr->destipaddr);	// save dest ip
+      tx->retry_count = 0;		// set retry count
     }
   return i;
 }
 
-/*******************************************************************
+/*****************************************************************************
 *
-* NAME :            
+* NAME        :	should_bridge          
 *
-* DESCRIPTION :
+* DESCRIPTION : 
 *
-* INPUTS :
+* INPUTS      : pointer to a scout packet, pointer to an IP for the target
 *
-* OUTPUTS :
+* OUTPUTS     :
 *
-* NOTES :   
+* NOTES       :   
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
 *
 */
 
-static uint8_t should_bridge (struct scout_packet *s, uint32_t * ip_targetp)
+static uint8_t
+should_bridge (struct scout_packet *s, uint32_t * ip_targetp)
 {
 
   /* if destination is reachable fill ip_target address */
-
-  if (rTableEthType[s->DNet] == ROUTABLE)	// is the destination Network routable on Ethernet
-    {
-      *ip_targetp = rTableEthIP[s->DNet] | ((unsigned long) (s->DStn) << 24); // set ip target address
-      return 1;	// is routable
+  if (rTableEthType[s->DNet] == ETH_TYPE_LOCAL)	// is the destination Network 
+    // routable on Ethernet
+    {				// set ip target address
+      *ip_targetp = rTableEthIP[s->DNet] | ((unsigned long) (s->DStn) << 24);
+      return 1;			// is routable
     }
   else
     {
-      return 0;
+      return 0;			// not routable
     }
 
 }
 
-/*******************************************************************
+/*****************************************************************************
 *
-* NAME : make_scout_acknowledge           
+* NAME        :	make_scout_acknowledge           
 *
-* DESCRIPTION : Sets the source station.net and dest station.net in 
-*               a scout packet from the received packet
+* DESCRIPTION :	Sets the source station.net and dest station.net in 
+*		a scout packet from the received packet
 *
-* INPUTS : None
+* INPUTS      :	None
 *
-* OUTPUTS : None
+* OUTPUTS     :	None
 *
-* NOTES :  scout_mbuf is a static, global to adlc.c
+* NOTES       :	scout_mbuf is a static, global to adlc.c
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -351,17 +383,17 @@ make_scout_acknowledge (void)
   scout_mbuf.data[3] = ECONET_RX_BUF[1];	// source network = destination network
 }
 
-/*******************************************************************
+/*****************************************************************************
 *
-* NAME : make_and_send_scout           
+* NAME        :	make_and_send_scout           
 *
-* DESCRIPTION : create a scout packet and send it
+* DESCRIPTION :	create a scout packet and send it
 *
-* INPUTS :	None
+* INPUTS      :	None
 *
-* OUTPUTS : None
+* OUTPUTS     :	None
 *
-* NOTES :	scout_mbuf is a static, global to adlc.c  
+* NOTES       :	scout_mbuf is a static, global to adlc.c  
 *		The control byte and port byte for the scout packet are 
 *		added in the adlc_tx_frame routine
 *
@@ -373,37 +405,37 @@ make_scout_acknowledge (void)
 static void
 make_and_send_scout (void)
 {
-  make_scout_acknowledge ();	// make the ack packet
+  make_scout_acknowledge ();	// set source & destination bytes in a scout pkt
   scout_mbuf.length = 4;	// set the current length
-
   adlc_tx_frame ((struct mbuf *) &scout_mbuf, SCOUT_FRAME);	// transmit buffer, type
 }
 
-/*******************************************************************
+/*****************************************************************************
 *
-* NAME 	:	do_local_immediate          
+* NAME 	      :	do_local_immediate          
 *
 * DESCRIPTION :	do an immediate operation
 *
-* INPUTS 	:	control byte
+* INPUTS      :	control byte
 *
-* OUTPUTS	:	nothing
+* OUTPUTS     :	nothing
 *
-* NOTES	:	Only Machine Type reply currently implemented
+* NOTES	      :	Only Machine Type reply currently implemented
 *
 * CHANGES	:
 * REF NO    DATE    WHO     DETAIL
 *
 */
 
-static void do_local_immediate (uint8_t cb)
+static void
+do_local_immediate (uint8_t cb)
 {
-  switch (cb & RXCB)			// Mask the top bit
+  switch (cb & RXCB)		// Mask the top bit
     {
-    case Econet_MachineType:		// Returns code to indicate machine type and NFS
-						// version of remote station. 
-      make_scout_acknowledge ();
-      scout_mbuf.data[4] = (unsigned char)((MACHINE_TYPE_IGATEWAY & 0xFF00) >> 8);	// MACHINE_TYPE
+    case ECONET_MACHINETYPE:	// Returns code to indicate machine type and NFS
+      // version of remote station. 
+      make_scout_acknowledge ();	// set source & destination bytes in a scout pkt
+      scout_mbuf.data[4] = (unsigned char) ((MACHINE_TYPE_IGATEWAY & 0xFF00) >> 8);	// MACHINE_TYPE
       scout_mbuf.data[5] = (unsigned char) (MACHINE_TYPE_IGATEWAY & 0x00FF);	// MACHINE_VENDOR
       scout_mbuf.data[6] = MACHINE_VER_LOW;
       scout_mbuf.data[7] = MACHINE_VER_HIGH;
@@ -414,27 +446,29 @@ static void do_local_immediate (uint8_t cb)
     }
 }
 
-/*******************************************************************
+/*****************************************************************************
 *
-* NAME	:	adlc_poller           
+* NAME        :	adlc_poller           
 *
 * DESCRIPTION :	Checks the ADLC status to see if any packets have been
 *			received or any are due for transmission
 *
-* INPUTS	:	None
+* INPUTS       :	None
 *
-* OUTPUTS	:	None
+* OUTPUTS      :	None
 *
-* NOTES 	:   
+* NOTES        :   
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
 *
 */
 
-void adlc_poller (void)
+void
+adlc_poller (void)
 {
-  if (adlc_state == RX_IDLE)				// if the ADLC is idle (not receiving)
+
+  if (adlc_state == RX_IDLE)	// if the ADLC is idle (not receiving)
     {
 
     /*---- loop through the Tx records held in the tx_buf array ----*/
@@ -443,13 +477,13 @@ void adlc_poller (void)
       for (i = 0; i < MAX_TX; i++)
 	{
 	  struct tx_record *tx = &tx_buf[i];	// get a pointer to the next record
-	  if (tx->mb)					// is a mbuf assigned to the tx record?
+	  if (tx->mb)		// is a mbuf assigned to the tx record?
 	    {
-	      if (tx->retry_timer == 0)		// check the tx record retry timer is 0
-								// otherwise subtract 1
+	      if (tx->retry_timer == 0)	// check the tx record retry timer is 0
+		// otherwise subtract 1
 		{
-		  uint8_t state = do_tx_packet (tx);// send the tx record to the transmit routine
-		  switch (state)				// check the transmission result
+		  uint8_t state = do_tx_packet (tx);	// send the tx record to the transmit routine
+		  switch (state)	// check the transmission result
 		    {
 		    default:
 		      if (tx->retry_count--)
@@ -457,15 +491,15 @@ void adlc_poller (void)
 			  tx->retry_timer = ADLC_TX_RETRY_DELAY;	// set the delay timer
 			  break;
 			}
-		    case TX_OK:						// Tx operation was a success
-		    case LINE_JAMMED:					// The line was jammed
-		      if (tx->is_aun)					// was Tx an AUN operation?
+		    case TX_OK:	// Tx operation was a success
+		    case LINE_JAMMED:	// The line was jammed
+		      if (tx->is_aun)	// was Tx an AUN operation?
 			{
-			  aun_tx_complete (state, tx);		
+			  aun_tx_complete (state, tx);
 			}
-		      mbuf_free_chain (tx->mb);			// clear the mbuf chain of the data
-		      tx->mb = NULL;					// clear the Tx record
-		      if (tx->r_mb)					
+		      mbuf_free_chain (tx->mb);	// clear the mbuf chain of the data
+		      tx->mb = NULL;	// clear the Tx record
+		      if (tx->r_mb)
 			{
 			  mbuf_free_chain (tx->r_mb);
 			  tx->r_mb = NULL;
@@ -474,120 +508,162 @@ void adlc_poller (void)
 		    }
 		}
 	      else
-		tx->retry_timer--;				// subtract 1 from the retry timer
+		tx->retry_timer--;	// subtract 1 from the retry timer
 	    }
 	}
     }
+
   else if ((adlc_state & 0x0F) == FRAME_COMPLETE)	// The ADLC has picked up a Rx packet
     {
-      uint16_t frame_length = get_adlc_rx_ptr () - (int) ECONET_RX_BUF; // get the frame length
-      stats.frames_in++;					// update Rx stats
+      uint16_t frame_length = get_adlc_rx_ptr () - (int) ECONET_RX_BUF;	// get the frame length
+      stats.frames_in++;	// update Rx stats
 
-/*
-#ifdef DEBUG
-      serial_tx_str ("eco ");
-      serial_tx_str ("rx ");
-      serial_packet (ECONET_RX_BUF, frame_length);
+#ifdef DEBUGrx
+      serial_tx_str ("eco rx ");
+      serial_short (frame_length);
+      serial_crlf ();
+      serial_packet ((unsigned short) &ECONET_RX_BUF, frame_length);
 #endif
-*/
 
       if (adlc_state == (RX_SCOUT | FRAME_COMPLETE))	// Scout packet received?
 	{
-	  if (frame_length < sizeof(struct scout_packet))// shorter than a scout packet should be?
+	  if (frame_length < 6)	// a packet should never be shorter than 6 bytes
+	    // d.stn, d.net, s.stn, s.net, port, data
 	    {
-	      stats.short_scouts++;			// update stats
-	      goto out;					// quit
+	      stats.short_scouts++;	// update stats
+	      goto out;		// quit
 	    }
 
+	  // the start of an econet packet can always use the scout structure
 	  struct scout_packet *s = (struct scout_packet *) ECONET_RX_BUF;
 
-	  if (s->DStn == ANY_STATION)			// if broadcast scout received
+	  /*---- Broadcast packets -----------------------------------------*/
+
+	  if (s->DStn == ANY_STATION)	// if broadcast scout received
 	    {
-	      stats.rx_bcast++;				// update stats
+	      stats.rx_bcast++;	// update stats
 
 	      if (s->Port == FIND_SERVER_PORT)	// incoming request for find server port?
-		handle_port_b0 ();			// return the IP_PORT
+		handle_port_b0 ();	// return the IP_PORT
 
-	      if (s->Port == IP_PORT)			// incoming request on IP_PORT?
+	      if (s->Port == IP_PORT)	// incoming request on IP_PORT?
 		handle_ip_packet (ECONET_RX_BUF[4], frame_length, 6);
 
-	      if (s->Port == BRIDGE_PORT)		// incoming request for Bridge Port?
+	      if (s->Port == BRIDGE_PORT)	// incoming request for Bridge Port?
 		handle_port_9c (frame_length);
 
-	      else						// Otherwise treat as a data packet and broadcast
-		{						// to AUN without the first 6 bytes
+	      else		// Otherwise treat as a data packet and broadcast
+		{		// to AUN without the first 6 bytes
 		  memcpy (uip_appdata + AUNHDRSIZE, ECONET_RX_BUF + 6, frame_length - 6);
-//		  aun_send_broadcast (s, frame_length - 6);	// does nothing. Empty procedure
+//                aun_send_broadcast (s, frame_length - 6);     // does nothing. Empty procedure
 		}
 	    }
-	  else if (should_bridge (s, (uint32_t *) &ip_target[0]))	// check if the packet should be forwarded
+
+	  /*---- Data Packets to forward -----------------------------------*/
+
+	  else if (should_bridge (s, (uint32_t *) & ip_target[0]))	// check if the packet should be forwarded
 	    {
-	      if (s->Port == IMMEDIATE_PORT)		// If Port 00 for an immediate OP
+
+	      if (s->Port == IMMEDIATE_PORT)	// If Port 00 for an immediate OP
 		{
-		  aun_send_immediate (s, (uint32_t *) (ECONET_RX_BUF + 6), frame_length - 6);	// forward data to AUN
+		  adlc_state = BUSY_FORWARDING;	// flag adlc as busy
+		  // copy data from Econet Buffer to Ethernet
+		  memcpy (&uip_buf[UIP_LLH_LEN + UIP_IPUDPH_LEN + AUNHDRSIZE], ECONET_RX_BUF + 4, frame_length - 4);
+		  aun_send_immediate (s->ControlByte, IMMEDIATE_PORT, s, frame_length - 4, IMMEDIATE_OP);	// forward data to AUN
 		  return;
 		}
-		// otherwise it wasn't the IMMEDIATE_PORT
+
+	      // otherwise it wasn't the IMMEDIATE_PORT
 	    do_rx_data:
-	      aun_cb = s->ControlByte;		// set Control Byte
-	      aun_port = s->Port;			// set Port
-	      make_and_send_scout ();			// send Scout ACK on Econet
+	      aun_cb = s->ControlByte;	// set Control Byte
+	      aun_port = s->Port;	// set Port
+	      make_and_send_scout ();	// send Scout ACK on Econet
 	      adlc_ready_to_receive (RX_DATA);	// set ADLC ready for data
 	      return;
 	    }
-	  else if (s->DStn == eeprom.Station && s->DNet == LOCAL_NETWORK) // packet for this device
+
+	  /*---- Packets for this device -----------------------------------*/
+
+	  else if (s->DStn == eeprom.Station && s->DNet == LOCAL_NETWORK)	// packet for this device
 	    {
 	      if (s->Port == IMMEDIATE_PORT)	// immediate OP ?
 		{
 		  do_local_immediate (s->ControlByte);
 		}
-	      else if (s->Port == IP_PORT)		// operation on IP_PORT ?
+	      else if (s->Port == IP_PORT)	// operation on IP_PORT ?
 		{
 		  goto do_rx_data;
 		}
 	    }
+
+	  /*---- No Destination --------------------------------------------*/
+
+	  else
+	    {
+#ifdef DEBUGrx
+	      serial_tx_str ("no destination!");
+	      serial_crlf ();
+#endif
+	    }
 	}
       else if (adlc_state == (RX_DATA | FRAME_COMPLETE))	// data Rx completed
 	{
-	  if (aun_port == IP_PORT)				// data for IP_PORT ?
+	  if (aun_port == IP_PORT)	// data for IP_PORT ?
 	    {
 	      handle_ip_packet (aun_cb, frame_length, 4);
 	      make_and_send_scout ();
 	      goto out;
 	    }
-	  if ((frame_length - 4) >
-	      (UIP_BUFSIZE - ((char *) uip_appdata - (char *) uip_buf)))	// too big for buffer?
+	  // check the size of the econet payload 4 bytes then <data>
+	  if ((frame_length - 4) > (UIP_BUFSIZE - ((char *) uip_appdata - (char *) uip_buf)))	// too big for buffer?
 	    {
-	      serial_tx_str ("too big!");
+#ifdef DEBUGrx
+	      serial_tx_str ("too big! - ");
+	      serial_short (frame_length);
 	      serial_crlf ();
+#endif
 	    }
 	  else
 	    {
-	      memcpy (uip_appdata + AUNHDRSIZE, ECONET_RX_BUF + 4,
-		      frame_length - 4);				// copy data from Econet Buffer to Ethernet
-	      aun_send_packet (aun_cb, aun_port,
-			       *((uint16_t *) (ECONET_RX_BUF + 2)), ip_target,
-			       frame_length - 4);			// forward data on AUN
-	      adlc_state = BUSY_FORWARDING;				// flag adlc as busy
+	      adlc_state = BUSY_FORWARDING;	// flag adlc as busy
+
+	      // copy data from Econet Buffer to Ethernet
+	      memcpy (uip_appdata + AUNHDRSIZE, ECONET_RX_BUF + 4, frame_length - 4);
+
+#ifdef DEBUGrx
+	      serial_tx_str ("ecof ");
+	      serial_tx_str ("rx ");
+	      serial_short (frame_length);
+	      serial_crlf ();
+	      serial_packet ((unsigned short) &ECONET_RX_BUF, frame_length);
+#endif
+
+	      // forward data on AUN
+	      aun_send_packet (aun_cb,
+			       aun_port,
+			       *((uint16_t *) (ECONET_RX_BUF + 2)),
+			       ip_target, frame_length - 4);
+
 	      return;
 	    }
 	}
     out:
-      adlc_ready_to_receive_scout ();				// set ADLC as ready to Rx Scout
+      adlc_ready_to_receive_scout ();	// set ADLC as ready to Rx Scout
     }
 }
 
-/*******************************************************************
+/*****************************************************************************
 *
-* NAME	:	adlc_forwarding_complete            
+* NAME        :	adlc_forwarding_complete            
 *
-* DESCRIPTION :	If the result is TX_OK, send a scout ACK.
+* DESCRIPTION :	If the result is TX_OK, send a scout ACK with a maximum of 12
+*               bytes of data
 *
-* INPUTS	:	result, ptr to buffer, length
+* INPUTS      :	result, ptr to buffer, length
 *
-* OUTPUTS	:	nothing
+* OUTPUTS     :	nothing
 *
-* NOTES	:	   
+* NOTES       :	   
 *
 * CHANGES :
 * REF NO    DATE    WHO     DETAIL
@@ -599,21 +675,16 @@ adlc_forwarding_complete (uint8_t result, uint8_t * buffer, uint8_t length)
 {
   if (result == TX_OK)
     {
-      make_scout_acknowledge ();			// make scout ACK
-      if (length > 12)					// trim length to max 12 bytes
+      make_scout_acknowledge ();	// set source & destination bytes in a scout pkt
+      if (length > 12)		// trim length to max 12 bytes
 	length = 12;
-      memcpy (&scout_mbuf.data[4], buffer, length);	// copy buffer to scout buffer +4
-      scout_mbuf.length = 4 + length;		// set length of packet
+      memcpy (&scout_mbuf.data[4],	// copy buffer to scout buffer +4
+	      buffer, length);
+      scout_mbuf.length = 4 + length;	// set length of packet
 
-/*
-#ifdef DEBUG
-      serial_tx_str ("eco6");
-      serial_tx_str ("tx ");
-      serial_packet (&scout_mbuf.data, scout_mbuf.length + 2);
-#endif
-*/
       adlc_tx_frame ((struct mbuf *) &scout_mbuf, SCOUT_FRAME);	// Tx Scout ACK
     }
 
   adlc_ready_to_receive_scout ();
+
 }
