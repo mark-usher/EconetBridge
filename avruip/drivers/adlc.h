@@ -47,7 +47,6 @@
 #define NET_ERROR	3
 #define COLLIDED        4
 #define NO_CLOCK        5
-#define TX_IM_OK	7
 
 /*---- Rx Status -----------------------------------------------------------*/
 
@@ -177,7 +176,8 @@ struct tx_record
   uip_ipaddr_t target_ip;	// destination IP
   uint32_t requestor_handle;	// handle
   uint8_t cb;			// control byte incase it is an immediate op
-  struct mbuf *r_mb;		// requestor mbuf ?
+  struct mbuf *r_mb;		// return data mbuf
+  uint16_t r_totallength;	// total length of return data
 };
 
 /*---- Variables -----------------------------------------------------------*/

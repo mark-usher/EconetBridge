@@ -19,6 +19,7 @@ void mbuf_init (void);
 extern struct mbuf *mbuf_alloc (void);
 extern void mbuf_free (struct mbuf *);
 extern void mbuf_free_chain (struct mbuf *);
+extern uint16_t copy_from_mbufs (uint8_t * buffer, struct mbuf *m);
 extern struct mbuf *copy_to_mbufs (uint8_t * data, uint16_t length);
 
 #endif

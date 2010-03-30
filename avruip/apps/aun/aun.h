@@ -517,8 +517,7 @@ void foward_immediate_op_reply (struct wan_packet *w, unsigned short pkt_len,
 extern void forward_aun_packet (struct wan_packet *w,
 				unsigned short pkt_len, uint8_t type);
 extern void aun_send_immediate (uint8_t cb,
-		 uint8_t port, struct scout_packet *s,
-				uint16_t data_length, uint8_t type);
+		 uint8_t port, struct scout_packet *s, uint16_t data_length);
 extern void aun_send_packet (uint8_t cb,
 			     uint8_t port,
 			     uint16_t src_stn_net,

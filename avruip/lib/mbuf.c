@@ -156,3 +156,32 @@ copy_to_mbufs (uint8_t * buffer, uint16_t length)
     }
   return first;
 }
+
+/*********************************************************
+
+read data from mbufs
+
+Entry: pointer to a buffer to contain the data, first mbuf
+Returns: 0 or length of data
+
+*********************************************************/
+
+uint16_t
+copy_from_mbufs (uint8_t * tempbuf, struct mbuf *m_ret)
+{
+
+uint16_t length = 0;
+
+    do
+    {
+      memcpy (tempbuf, m_ret->data, m_ret->length);	// copy the data from the mbuf to the buffer
+
+      tempbuf += m_ret->length;	// increase the buffer pointer start by amount copied
+      length += m_ret->length;	// add length to the running total
+
+      m_ret = m_ret->next;
+
+    }   while (m_ret);		// while there is still data to process
+
+  return length;
+}
