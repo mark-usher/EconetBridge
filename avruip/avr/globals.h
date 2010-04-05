@@ -40,7 +40,7 @@ sDefaults_t;
 
 
 extern sDefaults_t eeprom;
-
+extern volatile uint8_t forwarding;
 extern uint8_t gPrevTxBidFail;
 
 #endif /* __ASSEMBLER__ */

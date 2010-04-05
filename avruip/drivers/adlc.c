@@ -118,6 +118,8 @@ do_tx_packet (struct tx_record *tx)
     type = BROADCAST;
   else if (eh->PORT == IMMEDIATE_PORT)
     type = IMMEDIATE;
+  else if ((eh->PORT == 0xFF) && (eh->CB == 0xFF))
+    type = IMMEDIATE_OP_REPLY;
 
   stats.tx_attempts++;		// update tx stats
 
@@ -140,6 +142,25 @@ do_tx_packet (struct tx_record *tx)
       return TX_OK;		// return status Tx OK
     }				// END type == BROADCAST
 
+
+/*---- handle IMMEDIATE Tx packets  ----*/
+  if (type == IMMEDIATE_OP_REPLY)
+    {
+     adlc_tx_frame (tx->mb, ECONET_DATA_FRAME);	// send the data frame
+/*     serial_short(tx->mb->next);
+     serial_crlf();
+     serial_short(tx->mb->prev);
+     serial_crlf();
+     serial_tx_hex(tx->mb->length);
+     serial_crlf();
+     serial_packet(tx->mb->data, tx->mb->length);
+     serial_crlf();
+*/
+      adlc_ready_to_receive_scout ();	// receive a scout frame
+      return TX_OK;		// return status Tx OK
+    }				// END type == BROADCAST
+
+
 /*---- handle IMMEDIATE Tx packets  ----*/
 
   uint8_t extra_len = 0, do_4way = 0;	// Set up extra_length & 
@@ -159,9 +180,10 @@ do_tx_packet (struct tx_record *tx)
 	do_4way = 1;					// set 4way handshake flag
     }
 
+  // send initial scout with extra data
   memcpy (scout_mbuf.data, tx->mb->data, 6 + extra_len);
   scout_mbuf.length = 6 + extra_len;
-  adlc_tx_frame ((struct mbuf *) &scout_mbuf, SCOUT_FRAME);	// transmit a scout frame
+  adlc_tx_frame ((struct mbuf *) &scout_mbuf, SCOUT_FRAME);	// transmit the scout frame
 
   // wait for a scout ack
   unsigned char state;
@@ -171,6 +193,7 @@ do_tx_packet (struct tx_record *tx)
     }
   while (state != RX_IDLE && state != (RX_SCOUT_ACK | FRAME_COMPLETE));
 
+  // no reply? then exit
   if (state == RX_IDLE)
     {
       adlc_ready_to_receive_scout ();
@@ -191,7 +214,6 @@ do_tx_packet (struct tx_record *tx)
 
   if (type == NORMAL_PACKET || do_4way)
     {
-
      adlc_tx_frame (mb, ECONET_DATA_FRAME);	// send the data frame
 
      do
@@ -210,29 +232,10 @@ do_tx_packet (struct tx_record *tx)
     {
       uint16_t frame_length = get_adlc_rx_ptr () - (int) ECONET_RX_BUF;
 
+      // place the data in an mbuf chain to transmit back to aun
       if (frame_length > 4)
-	{
-//        tx->r_mb = copy_to_mbufs (ECONET_RX_BUF + 4, frame_length - 4);
+        tx->r_mb = copy_to_mbufs (ECONET_RX_BUF + 4, frame_length - 4);
 
-	  // forward packet to AUN
-          struct mns_msg *ah = (struct mns_msg *) (uip_appdata);
-
-	  ah->mns_handle = tx->requestor_handle;	// restore handle
-
-	  // copy the previous header info from the ethernet immediate op being
-	  // passed to econet, so that the operation and packet number is replied to
-
-	  // copy data from Econet Buffer to Ethernet packet after the AUN header
-	  memcpy (&uip_buf[UIP_LLH_LEN + UIP_IPUDPH_LEN + AUNHDRSIZE],
-		  ECONET_RX_BUF + 4, frame_length - 4);
-
-	  // creates an easy link to retrieve the source / destination address
-	  struct scout_packet *s = (struct scout_packet *) ECONET_RX_BUF;
-
-	  // forward data to AUN
-	  aun_send_immediate (tx->cb, IMMEDIATE_PORT, s, frame_length - 4, IMMEDIATE_OP_REPLY);	
-
-	}
     }
 
   adlc_ready_to_receive_scout ();
@@ -271,6 +274,8 @@ enqueue_tx (struct mbuf * mb)
       tx->retry_timer = 0;
       tx->mb = mb;		// set the memory buffer to transmit
       tx->is_aun = 0;
+      tx->r_mb = NULL;
+      tx->r_totallength = 0;
       return i + 1;		// return tx_record index+1
     }
   else
@@ -493,10 +498,8 @@ adlc_poller (void)
 			}
 		    case TX_OK:	// Tx operation was a success
 		    case LINE_JAMMED:	// The line was jammed
-		      if (tx->is_aun)	// was Tx an AUN operation?
-			{
+ 		      if (tx->is_aun)	// was Tx an AUN operation?
 			  aun_tx_complete (state, tx);
-			}
 		      mbuf_free_chain (tx->mb);	// clear the mbuf chain of the data
 		      tx->mb = NULL;	// clear the Tx record
 		      if (tx->r_mb)
@@ -504,7 +507,6 @@ adlc_poller (void)
 			  mbuf_free_chain (tx->r_mb);
 			  tx->r_mb = NULL;
 			}
-		      break;
 		    }
 		}
 	      else
@@ -568,8 +570,8 @@ adlc_poller (void)
 		{
 		  adlc_state = BUSY_FORWARDING;	// flag adlc as busy
 		  // copy data from Econet Buffer to Ethernet
-		  memcpy (&uip_buf[UIP_LLH_LEN + UIP_IPUDPH_LEN + AUNHDRSIZE], ECONET_RX_BUF + 4, frame_length - 4);
-		  aun_send_immediate (s->ControlByte, IMMEDIATE_PORT, s, frame_length - 4, IMMEDIATE_OP);	// forward data to AUN
+		  memcpy (&uip_buf[UIP_LLH_LEN + UIP_IPUDPH_LEN + AUNHDRSIZE], ECONET_RX_BUF + 6, frame_length - 6);
+		  aun_send_immediate (s->ControlByte, IMMEDIATE_PORT, s, frame_length - 6);	// forward data to AUN
 		  return;
 		}
 

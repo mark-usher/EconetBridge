@@ -8,6 +8,7 @@
 
 #include "adlc.h"
 #include "egpio.h"
+#include "..\avr\globals.h"
 
 
 // The ADLC has four control registers and two status registers.
@@ -82,7 +83,7 @@
 #define	SR1_TDRA	0x40		// Tx data register available. This should be read before sending
 					// a byte. When CTS is high, TDRA is deasserted to indicate that
 					// transmission should end.
-#define	SR1_IRQ		0x80		// IRQ. Interrupts are enabled as appropriage to indicate transmit,
+#define	SR1_IRQ		0x80		// IRQ. Interrupts are enabled as appropriate to indicate transmit,
 					// receive and error conditions.
 
 // status register 2
@@ -283,18 +284,25 @@ idle_wait_loop:
 ; -----------------------------------------------------------------------------------------
 ;
 	;;  r24, r25  pointer to first mbuf
-	;;  r22=0 -> this is a data frame, skip the cb and scout bytes
+	;;  r22  =0 -> this is a data frame, skip the cb and scout bytes
 
 .globl	adlc_tx_frame
 adlc_tx_frame:
+
+	; save contents of Y
 	push	YH
 	push	YL
+
+	; copy mbuf pointer to Y as word
 	movw	YL, r24
 
+	; set Econet Tx LED
 	ldi	r24, EGPIO_ECONET_GREEN
 	rcall	egpio_write
 
+	; set a counter to tx the first 4 bytes no matter what
 	ldi	r23, 5
+
 	; go on the wire and start transmitting
 	ldi	tmp2, CR1_RXRESET
 	rcall	adlc_write_cr1
@@ -302,43 +310,47 @@ adlc_tx_frame:
 	ldi	tmp2, CR2_RTS | CR2_FLAGIDLE
 	rcall	adlc_write_cr2
 
+	; transmit one mbuf
 tx_one_mbuf:
-	ld	XL, Y
-	ldd	XH, Y+1
-	ldd	r21, Y+4
-	adiw	YL, 6
+	ld	XL, Y				; XL = mbuf->next pointer
+	ldd	XH, Y+1				; XH = mbuf->prev pointer
+	ldd	r21, Y+4			; mbuf length
+	adiw	YL, 6				; Y = mbuf->data address
 
+	; Wait for a TX Data Register to become available
 await_tdra:	
 	ldi	tmp1, ADLC_SR1
 	rcall	adlc_read
-	bst	tmp2, 6				; TDRA?
+	bst	tmp2, 6				; TDRA? bit 6 (0x40)
 	brbs	6, got_tdra
-	cpi	tmp2, 0
-	breq	await_tdra
+	cpi	tmp2, 0				; some other condition returned
+	breq	await_tdra			; if clear, wait
 
+	; ADLC SR1 returned a state other than 0 or 0x40 TDRA
 	mov	r22, tmp2
 	ldi	serial_tx_arg, 0x45		; E
 	rcall	serial_tx
-	mov	serial_tx_arg, r22
+	mov	serial_tx_arg, r22		; value returned from ADLC SR1
 	rcall	serial_tx_hex
 	ldi	r22, 1
-	rjmp	abandon_tx
+	rjmp	abandon_tx			; abandon transmit
 
 got_tdra:
-	cpi	r22, 0
-	brne	not_data
-	dec	r23
-	brne	not_data
-	adiw	YL, 2
-	subi	r21, 2
+	cpi	r22, 0				; check flag passed to procedure
+	brne	not_data			; non-zero then tx
+	dec	r23				; decrease counter from 5 down
+	brne	not_data			; tx the first four bytes..
+						; if flag is also zero and here	
+	adiw	YL, 2				; skip the PORT and CONTROL bytes
+	subi	r21, 2				; subtract 2 from the length
 	
 not_data:
-	ld	tmp2, Y+
-	dec	r21
-	brne	not_end
+	ld	tmp2, Y+			; byte to send in tmp2
+	dec	r21				; decrease the length counter
+	brne	not_end				; finished all bytes in the mbuf yet?
 	cpi	XL, 0
 	cpc	XH, zero_reg
-	brne	not_end
+	brne	not_end				; is there another mbuf in the chain
 	
 tx_end:	
 	ldi	tmp1, ADLC_TXTERMINATE
@@ -369,6 +381,7 @@ abandon_tx:
 	ldi	tmp2, CR1_RIE | CR1_TXRESET	; Enable Receive interrupts | Reset the TX status
 	rcall	adlc_write_cr1			; write to the ADLC
 
+	; clear Econet Tx LED
 	ldi	r24, EGPIO_ECONET_GREEN | EGPIO_SET
 	rcall	egpio_write
 
@@ -612,12 +625,12 @@ discontinue:
 	ldi	XH, hi8(ECONET_RX_BUF)		; set XH with the highbyte of the Econet receive buffer
 
 
-	ldi	serial_tx_arg, 0x64		; d
-	rcall	serial_tx
-	mov	serial_tx_arg, XH
-	rcall	serial_tx_hex
-	mov	serial_tx_arg, XL
-	rcall	serial_tx_hex
+;	ldi	serial_tx_arg, 0x64		; d
+;	rcall	serial_tx
+;	mov	serial_tx_arg, XH
+;	rcall	serial_tx_hex
+;	mov	serial_tx_arg, XL
+;	rcall	serial_tx_hex
 
 	movw	adlc_rx_ptr_lo, XL
 

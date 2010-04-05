@@ -43,8 +43,6 @@ uint8_t rTableEco[256];		// array to flag the routable Econet Networks
 uint32_t rTableEthIP[256];	// array to hold the Ethernet IP a.b.c.x for routable networks
 uint8_t rTableEthType[256];	//
 
-
-static char forwarding;
 static uint16_t fwd_timeout;
 
 /*---- Prototypes ----------------------------------------------------------*/
@@ -454,8 +452,16 @@ forward_aun_packet (struct wan_packet *w, unsigned short pkt_len,
   eh->DNET = w->dnet;
   eh->SSTN = w->sstn;
   eh->SNET = w->snet;
-  eh->CB = cb | 0x80;
-  eh->PORT = port;
+
+  if (type == IMMEDIATE_OP_REPLY)
+  {
+      eh->CB = 0xFF;
+      eh->PORT = 0xFF;		// this won't be transmitted but forces the id for 
+      			 	// tx as normal not immediate in do_tx_packet
+  }
+  else
+      eh->CB = cb | 0x80;
+      eh->PORT = port;
 
   struct mbuf *mb = copy_to_mbufs ((uint8_t *) eh, pkt_len + 6);
 
@@ -502,27 +508,24 @@ foward_immediate_op_reply (struct wan_packet *w, unsigned short pkt_len,
   switch (immediate_op && RXCB)	// holds the immediate op code
     {
     case ECONET_PEEK:		// 1 Copy memory from another machine
-      forward_aun_packet (w, pkt_len, IMMEDIATE_OP_REPLY);
       forwarding = 0;
-//        adlc_state = RX_IDLE;
-//        adlc_poller();
+      forward_aun_packet (w, pkt_len, IMMEDIATE_OP_REPLY);
+      adlc_state = RX_IDLE;
+      adlc_poller();
       break;
     case ECONET_POKE:		// 2 Copy memory to another machine
-      break;
     case ECONET_JSR:		// 3 Cause JSR/BL on another machine
-      break;
     case ECONET_USER_RPC:	// 4 Execute User remote procedure call
-      break;
-    case ECONET_OS_RPC:	// 5 Execute OS remote procedure call
+    case ECONET_OS_RPC:		// 5 Execute OS remote procedure call
+      adlc_forwarding_complete (TX_OK, uip_appdata + 8, 4);
       break;
     case ECONET_HALT:		// 6 Halt the remote machine
-      break;
     case ECONET_CONTINUE:	// 7 Continue the remote machine
-      break;
     case ECONET_MACHINETYPE:	// 8 Machine peek of another machine
       adlc_forwarding_complete (TX_OK, uip_appdata + 8, 4);
       break;
     case ECONET_GET_REGS:	// 9 Return registers from another machine  
+      adlc_forwarding_complete (TX_OK, uip_appdata + 8, 4);
       break;
     default:
       not_listening ();
@@ -589,8 +592,7 @@ do_atp (unsigned char *Net, unsigned char *Stn)
 void
 aun_send_immediate (uint8_t cb,
 		 uint8_t port,
-		 struct scout_packet *s, uint16_t data_length,
-		    uint8_t type)
+		 struct scout_packet *s, uint16_t data_length)
 {
 
   // set up an AUN header for the packet by defining the start of uip_appdata
@@ -600,22 +602,20 @@ aun_send_immediate (uint8_t cb,
   ah = (struct mns_msg *) (uip_appdata);
 
   // fill in the details of the AUN header
-  ah->mns_opcode = type;	// type data frame
-  ah->mns_status = 0;		// status
-  ah->mns_port = port;		// destination port
-  ah->mns_control = cb & RXCB;	// control byte
-  if (type != IMMEDIATE_OP_REPLY)
-    ah->mns_handle = ++ r_s.handle;	// set a new handle
+  ah->mns_opcode = IMMEDIATE_OP;	// type data frame
+  ah->mns_port = port;			// destination port
+  ah->mns_control = cb & RXCB;		// control byte
+  ah->mns_status = 0;			// status
+  ah->mns_handle = ++ r_s.handle;	// set a new handle
  
-  uint8_t src_net = s->SNet;	// source network
+  uint8_t src_net = s->SNet;		// source network
 
   // if the source network is LOCAL (0) change it to the bridge's configured
   // network.
 
   if (src_net == LOCAL_NETWORK)
-    {
       src_net = eeprom.Econet_Network;
-    }
+
 
   // set the source ip address translation
   BUF->srcipaddr[0] = uip_hostaddr[0];	// first half same as host
@@ -626,11 +626,10 @@ aun_send_immediate (uint8_t cb,
 
   uip_udp_send (AUNHDRSIZE + data_length);
 
-  if (type != IMMEDIATE_OP_REPLY)
-    {
-      forwarding = 1;		// set the flag for the aun_poller routine to wait for a reply
-      fwd_timeout = 20000;	// set the timeout value
-    }
+  forwarding = 1;		// set the flag for the aun_poller routine to wait for a reply
+  fwd_timeout = 20000;	// set the timeout value
+
+//serial_packet(uip_appdata,AUNHDRSIZE + data_length);
 
   // packet is ready to send,
   do_uip_send ();
@@ -683,9 +682,7 @@ aun_send_packet (uint8_t cb,
   // network.
 
   if (src_net == LOCAL_NETWORK)
-    {
       src_net = eeprom.Econet_Network;
-    }
 
   // set the source ip address translation
   BUF->srcipaddr[0] = uip_hostaddr[0];	// first half same as host
@@ -750,7 +747,9 @@ aun_tx_complete (int8_t status, struct tx_record *tx)
 
 #define BUF ((struct uip_tcpip_hdr *)&uip_buf[UIP_LLH_LEN])
 
-  uint8_t length = 8;
+uint8_t cb = tx->cb & RXCB;
+uint16_t data_length = AUNHDRSIZE;
+
   struct mns_msg *ah;
   uip_appdata = &uip_buf[UIP_IPUDPH_LEN + UIP_LLH_LEN];
   ah = (struct mns_msg *) (uip_appdata);
@@ -758,11 +757,27 @@ aun_tx_complete (int8_t status, struct tx_record *tx)
   uip_ipaddr_copy (BUF->destipaddr, tx->requestor_ip);
   uip_ipaddr_copy (BUF->srcipaddr, tx->target_ip);
 
-  memset (ah, 0, sizeof (*ah));
-  ah->mns_opcode = (status == TX_OK) ? DATA_FRAME_ACK : DATA_FRAME_REJ;
+  memset (ah, 0, AUNHDRSIZE);
+
+  if ((tx->r_mb) && (cb >= ECONET_PEEK) && (cb <= ECONET_GET_REGS)) // immediate op?
+  {
+    ah->mns_opcode = DATA_FRAME_ACK; // IMMEDIATE_OP_REPLY;
+    ah->mns_control = cb;
+  }
+  else
+  {
+    ah->mns_opcode = (status == TX_OK) ? DATA_FRAME_ACK : DATA_FRAME_REJ;
+  }
+
   ah->mns_handle = tx->requestor_handle;
 
-  uip_udp_send (length);	// Send a UDP datagram on the current connection.
+
+  if (tx->r_mb)			// data to be added
+  {
+	data_length += copy_from_mbufs(&uip_appdata[AUNHDRSIZE], tx->r_mb);
+  }
+
+  uip_udp_send (data_length);	// Send a UDP datagram on the current connection.
   do_uip_send ();
 
 }
